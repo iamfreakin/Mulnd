@@ -96,6 +96,8 @@ internal static class Program
             Console.WriteLine($"트랙 음량 검증: {trackGainPassed}개 통과");
             int trackGainProjectPassed = TrackGainProjectChecks.Run(args[0]);
             Console.WriteLine($"트랙 음량 저장 검증: {trackGainProjectPassed}개 통과");
+            int clipTrimPassed = ClipTrimChecks.Run(args[0]);
+            Console.WriteLine($"클립 길이 조절 검증: {clipTrimPassed}개 통과");
         }
         catch (Exception error) { Console.Error.WriteLine("추가 기능 검증 실패: " + error); return 1; }
         return passed == tests.Length ? 0 : 1;

@@ -45,7 +45,13 @@ public partial class StudioWindow : Window
         _history.Add(_state);
         Timeline.TrackSelected += id => SelectTrack(id);
         Timeline.ClipMoved += MoveClip;
+        Timeline.ClipTrimmed += TrimClip;
         Timeline.CursorChanged += SetEditCursor;
+        Timeline.PreviewMouseDown += (_, e) =>
+        {
+            if (_busy || !CommitNumbers()) e.Handled = true;
+            else StopPlayback(true);
+        };
         TimelineScroll.SizeChanged += (_, _) => UpdateTimelineViewport();
         TimelineScroll.ScrollChanged += (_, _) => UpdateTimelineViewport();
         SourceWaveform.SelectionChanged += (start, end) => UpdateSelected(t => t with { Edit = t.Edit with { StartFrame = start, EndFrame = end } }, "trim");
@@ -558,6 +564,7 @@ public partial class StudioWindow : Window
         await RunWorkspaceChecksAsync(outputBase);
         await RunCursorPlaybackChecksAsync(outputBase);
         await RunTrackGainChecksAsync(outputBase);
+        await RunClipTrimChecksAsync(outputBase);
         _workspaceChannels[_state.Tracks[0].EffectiveLaneId].VolumeFader.Value = -6;
         if (!await SaveProjectAsync(false)) throw new InvalidOperationException("검수용 프로젝트 최종 저장 실패");
         WriteAudioAtomic(outputBase + ".wav", RenderSnapshot(_state, null, false));

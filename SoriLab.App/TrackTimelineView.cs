@@ -18,6 +18,8 @@ public sealed class TrackTimelineView : FrameworkElement
     private const double MaximumSeconds = 120;
     private const double RightPadding = 12;
     private const double ClipHeight = 54;
+    private const double TrimHandleWidth = 8;
+    private const double TrimHandleHeight = 10;
     private static readonly Typeface LabelTypeface = new("Malgun Gothic");
     private static readonly Brush BackgroundBrush = CreateBrush(0x20, 0x25, 0x2B);
     private static readonly Brush HeaderBrush = CreateBrush(0x25, 0x2C, 0x33);
@@ -158,7 +160,14 @@ public sealed class TrackTimelineView : FrameworkElement
 
     public event Action<Guid>? TrackSelected;
     public event Action<Guid, double, Guid>? ClipMoved;
+    public event Action<Guid, ClipTrimEdge, double>? ClipTrimmed;
     public event Action<double>? CursorChanged;
+
+    // 화면 입력과 검증이 같은 좌표 판정·미리 보기·확정 경로를 사용합니다.
+    internal bool HasPointerOperation => _drag is not null;
+    internal ClipTrimEdge? PointerTrimEdge => _drag?.TrimEdge;
+    internal AudioTrack? PointerPreviewTrack => _drag?.PreviewTrack;
+    internal double? PointerPixelsPerSecond => _drag?.PixelsPerSecond;
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -246,9 +255,10 @@ public sealed class TrackTimelineView : FrameworkElement
                     new Point(LabelWidth + 13, emptyTop + 27), 10, MutedTextBrush, timelineWidth - 24);
         }
 
-        // 이동 중인 클립만 잠시 맨 앞에 그려 겹친 위치와 새 행의 미리 보기를 보장합니다.
-        if (_drag is { HasMoved: true } moving && FindTrack(moving.Id) is { } movingTrack && TryGetClipInfo(movingTrack, out ClipInfo movingInfo))
+        // 이동 또는 길이 조절 중인 클립만 맨 앞에 그려 바뀐 구간과 파형을 보여줍니다.
+        if (_drag is { HasMoved: true } moving && TryGetClipInfo(moving.PreviewTrack, out ClipInfo movingInfo))
         {
+            AudioTrack movingTrack = moving.PreviewTrack;
             int targetRow = moving.PreviewLaneId == moving.NewLaneId ? _lanes.Count : FindLaneRow(moving.PreviewLaneId);
             if (targetRow >= 0)
             {
@@ -265,11 +275,19 @@ public sealed class TrackTimelineView : FrameworkElement
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        Point point = e.GetPosition(this);
-        if (point.X < 0 || point.Y < 0 || point.X > ActualWidth || point.Y > ActualHeight || TimelineWidth <= 0)
-            return;
+        if (BeginPointer(e.GetPosition(this))) e.Handled = true;
+    }
+
+    internal bool BeginPointer(Point point)
+    {
+        if (!IsEnabled || !double.IsFinite(point.X) || !double.IsFinite(point.Y) ||
+            point.X < 0 || point.Y < 0 || point.X > ActualWidth || point.Y > ActualHeight || TimelineWidth <= 0)
+            return false;
+
+        CancelDrag();
 
         AudioTrack? hit = HitClip(point);
+        ClipTrimEdge? trimEdge = hit is null ? null : HitTrimEdge(hit, point);
         int row = GetRow(point);
         Focus();
 
@@ -277,37 +295,36 @@ public sealed class TrackTimelineView : FrameworkElement
         {
             if (row >= 0 && row < _lanes.Count)
                 SelectClip(_lanes[row].Clips[0].Id);
-            e.Handled = true;
-            return;
+            return true;
         }
 
         if (hit is null)
         {
             SetCursorFromUser(TimeAt(point.X));
-            e.Handled = true;
-            return;
+            return true;
         }
 
         Guid id = hit.Id;
         SelectClip(id);
-        e.Handled = true;
 
         // 선택 알림에서 목록이나 배치가 갱신될 수 있어 최신 모델을 다시 찾습니다.
         AudioTrack? track = FindTrack(id);
-        if (track is null || !TryGetClipInfo(track, out ClipInfo info) || TimelineWidth <= 0)
-            return;
+        if (_selectedTrackId != id || track is null || !TryGetClipInfo(track, out ClipInfo info) || TimelineWidth <= 0)
+            return true;
         double duration = GetTimelineDuration();
         double pixelsPerSecond = TimelineWidth / duration;
         double offset = GetSafeOffset(track.OffsetSeconds, info.Duration);
         _drag = new DragState(id, point.X, point.Y, offset, offset, info.Duration, duration, pixelsPerSecond,
             track.EffectiveLaneId, track.EffectiveLaneId, Guid.NewGuid(), false,
-            Math.Clamp((point.X - LabelWidth) / pixelsPerSecond, 0, MaximumSeconds));
+            Math.Clamp((point.X - LabelWidth) / pixelsPerSecond, 0, MaximumSeconds),
+            track, track, trimEdge, trimEdge == ClipTrimEdge.End ? track.OffsetSeconds + info.Duration : track.OffsetSeconds);
         if (!CaptureMouse())
         {
             _drag = null;
-            return;
+            return true;
         }
-        Cursor = Cursors.SizeAll;
+        Cursor = trimEdge.HasValue ? Cursors.SizeWE : Cursors.SizeAll;
+        return true;
     }
 
     private void SelectClip(Guid id)
@@ -322,13 +339,14 @@ public sealed class TrackTimelineView : FrameworkElement
         Point point = e.GetPosition(this);
         if (_drag is not null)
         {
-            UpdateDrag(point);
+            UpdatePointer(point);
             e.Handled = true;
             return;
         }
 
         int row = GetRow(point);
-        Cursor = HitClip(point) is not null ? Cursors.SizeAll :
+        AudioTrack? hit = HitClip(point);
+        Cursor = hit is not null ? HitTrimEdge(hit, point).HasValue ? Cursors.SizeWE : Cursors.SizeAll :
             point.X >= LabelWidth ? Cursors.IBeam :
             row >= 0 && row < _lanes.Count ? Cursors.Hand : Cursors.Arrow;
     }
@@ -338,15 +356,14 @@ public sealed class TrackTimelineView : FrameworkElement
         base.OnMouseLeftButtonUp(e);
         if (_drag is null)
             return;
-        UpdateDrag(e.GetPosition(this));
-        FinishDrag(true);
+        FinishPointer(e.GetPosition(this));
         e.Handled = true;
     }
 
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);
-        FinishDrag(false);
+        CancelPointer();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -354,7 +371,7 @@ public sealed class TrackTimelineView : FrameworkElement
         base.OnKeyDown(e);
         if (e.Key == Key.Escape && _drag is not null)
         {
-            CancelDrag();
+            CancelPointer();
             e.Handled = true;
         }
     }
@@ -393,6 +410,37 @@ public sealed class TrackTimelineView : FrameworkElement
             bounds.Inflate(2, 0);
             if (bounds.Contains(point)) return track;
         }
+        return null;
+    }
+
+    internal Rect GetClipBounds(Guid id)
+    {
+        AudioTrack? track = FindTrack(id);
+        if (track is null || TimelineWidth <= 0) return Rect.Empty;
+        Guid lane = track.EffectiveLaneId;
+        if (_drag is { HasMoved: true } drag && drag.Id == id)
+        {
+            track = drag.PreviewTrack;
+            lane = drag.PreviewLaneId;
+        }
+        int row = _drag is { HasMoved: true } moving && moving.Id == id && lane == moving.NewLaneId
+            ? _lanes.Count : FindLaneRow(lane);
+        if (row < 0 || !TryGetClipInfo(track, out ClipInfo info)) return Rect.Empty;
+        double pixelsPerSecond = _drag?.PixelsPerSecond ?? TimelineWidth / GetTimelineDuration();
+        return GetClipRect(track, info, row, pixelsPerSecond);
+    }
+
+    private ClipTrimEdge? HitTrimEdge(AudioTrack track, Point point)
+    {
+        Rect bounds = GetClipBounds(track.Id);
+        if (bounds.IsEmpty || point.Y < bounds.Bottom - TrimHandleHeight || point.Y > bounds.Bottom)
+            return null;
+        // 아주 짧은 클립도 양쪽 손잡이를 구분하고 위쪽 몸통은 이동용으로 남깁니다.
+        double width = Math.Min(TrimHandleWidth, bounds.Width / 2);
+        if (point.X >= bounds.Left - 2 && point.X <= bounds.Left + width && point.X <= bounds.Left + bounds.Width / 2)
+            return ClipTrimEdge.Start;
+        if (point.X >= bounds.Right - width && point.X <= bounds.Right + 2)
+            return ClipTrimEdge.End;
         return null;
     }
 
@@ -447,35 +495,68 @@ public sealed class TrackTimelineView : FrameworkElement
         return true;
     }
 
-    private void UpdateDrag(Point point)
+    internal void UpdatePointer(Point point)
     {
         if (_drag is null || !double.IsFinite(point.X) || !double.IsFinite(point.Y))
             return;
-        bool hasMoved = _drag.HasMoved ||
-            Math.Abs(point.X - _drag.StartX) >= SystemParameters.MinimumHorizontalDragDistance ||
-            Math.Abs(point.Y - _drag.StartY) >= SystemParameters.MinimumVerticalDragDistance;
+        DragState drag = _drag;
+        bool hasMoved = drag.HasMoved ||
+            Math.Abs(point.X - drag.StartX) >= SystemParameters.MinimumHorizontalDragDistance ||
+            (!drag.TrimEdge.HasValue && Math.Abs(point.Y - drag.StartY) >= SystemParameters.MinimumVerticalDragDistance);
         if (!hasMoved) return;
-        double offset = GetSafeOffset(_drag.InitialOffset + (point.X - _drag.StartX) / _drag.PixelsPerSecond, _drag.ClipDuration);
+
+        if (drag.TrimEdge is ClipTrimEdge edge)
+        {
+            double originalEdge = edge == ClipTrimEdge.Start
+                ? drag.OriginalTrack.OffsetSeconds : drag.OriginalTrack.OffsetSeconds + drag.ClipDuration;
+            // 표시 최소 폭과 손잡이 안의 클릭 위치에 영향받지 않도록 처음 누른 위치의 이동량만 더합니다.
+            double requested = Math.Clamp(originalEdge + (point.X - drag.StartX) / drag.PixelsPerSecond, 0, MaximumSeconds);
+            AudioTrack preview;
+            try { preview = ClipEditing.Trim(drag.OriginalTrack, edge, requested); }
+            catch (ArgumentException) { preview = drag.OriginalTrack; }
+            _drag = drag with
+            {
+                PreviewTrack = preview, PreviewOffset = preview.OffsetSeconds,
+                PreviewLaneId = drag.InitialLaneId, RequestedEdgeSeconds = requested, HasMoved = true
+            };
+            InvalidateVisual();
+            return;
+        }
+
+        double offset = GetSafeOffset(drag.InitialOffset + (point.X - drag.StartX) / drag.PixelsPerSecond, drag.ClipDuration);
         int row = Math.Clamp((int)Math.Floor((point.Y - HeaderHeight) / RowHeight), 0, _lanes.Count);
-        Guid lane = row == _lanes.Count ? _drag.NewLaneId : _lanes[row].Id;
-        _drag = _drag with { PreviewOffset = offset, PreviewLaneId = lane, HasMoved = true };
+        Guid lane = row == _lanes.Count ? drag.NewLaneId : _lanes[row].Id;
+        _drag = drag with
+        {
+            PreviewOffset = offset, PreviewLaneId = lane, HasMoved = true,
+            PreviewTrack = drag.OriginalTrack with { OffsetSeconds = offset, LaneId = lane }
+        };
         InvalidateVisual();
     }
 
-    private void FinishDrag(bool completedClick)
+    internal void FinishPointer(Point point, bool commit = true)
     {
+        if (commit) UpdatePointer(point);
         DragState? completed = _drag;
         CancelDrag();
-        if (completed is null || !completedClick) return;
+        if (completed is null || !commit) return;
+        if (completed.TrimEdge is ClipTrimEdge edge)
+        {
+            if (completed.HasMoved && completed.PreviewTrack != completed.OriginalTrack)
+                ClipTrimmed?.Invoke(completed.Id, edge, completed.RequestedEdgeSeconds);
+            return;
+        }
         if (!completed.HasMoved)
         {
-            if (completedClick) SetCursorFromUser(completed.ClickSeconds);
+            SetCursorFromUser(completed.ClickSeconds);
             return;
         }
         if (Math.Abs(completed.InitialOffset - completed.PreviewOffset) > 0.000000001 ||
             completed.InitialLaneId != completed.PreviewLaneId)
             ClipMoved?.Invoke(completed.Id, completed.PreviewOffset, completed.PreviewLaneId);
     }
+
+    internal void CancelPointer() => CancelDrag();
 
     private void CancelDrag()
     {
@@ -511,8 +592,22 @@ public sealed class TrackTimelineView : FrameworkElement
         dc.PushTransform(new TranslateTransform(clipRect.Left + 4, clipRect.Top + 21));
         dc.DrawGeometry(null, audible ? wavePen : inactiveWavePen, cache.Geometry);
         dc.Pop();
+        DrawTrimHandles(dc, clipRect, selected ? TextBrush : audible ? palette.Wave : InactiveWaveBrush);
         dc.Pop();
         dc.Pop();
+    }
+
+    private static void DrawTrimHandles(DrawingContext dc, Rect bounds, Brush brush)
+    {
+        double width = Math.Min(5, Math.Max(1, (bounds.Width - 2) / 2));
+        var pen = CreatePen(brush, 1.4);
+        double left = bounds.Left + 1;
+        double right = bounds.Right - 1;
+        double bottom = bounds.Bottom - 1.5;
+        dc.DrawLine(pen, new Point(left, bottom - 6), new Point(left, bottom));
+        dc.DrawLine(pen, new Point(left, bottom), new Point(left + width, bottom));
+        dc.DrawLine(pen, new Point(right, bottom - 6), new Point(right, bottom));
+        dc.DrawLine(pen, new Point(right - width, bottom), new Point(right, bottom));
     }
 
     private void DrawPosition(DrawingContext dc, double seconds, double duration, double pixelsPerSecond, Pen pen, bool editCursor)
@@ -632,7 +727,8 @@ public sealed class TrackTimelineView : FrameworkElement
     private sealed record LaneRow(Guid Id, AudioTrack[] Clips);
     private sealed record DragState(Guid Id, double StartX, double StartY, double InitialOffset, double PreviewOffset,
         double ClipDuration, double TimelineDuration, double PixelsPerSecond, Guid InitialLaneId, Guid PreviewLaneId,
-        Guid NewLaneId, bool HasMoved, double ClickSeconds);
+        Guid NewLaneId, bool HasMoved, double ClickSeconds, AudioTrack OriginalTrack, AudioTrack PreviewTrack,
+        ClipTrimEdge? TrimEdge, double RequestedEdgeSeconds);
     private sealed record WaveCache(AudioClip Source, int StartFrame, int EndFrame, double Width, double Dpi,
         double Rate, bool Reverse, StreamGeometry Geometry);
 }

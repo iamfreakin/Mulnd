@@ -2,8 +2,8 @@
 
 실행과 개발
 - 압축본에서는 실행 폴더의 SoriLab.exe를 실행하고, 프로젝트 열기에서 예제 폴더의 다중트랙_검수.sorilab을 선택하세요.
-- 검수용 실행 파일: outputs/실행/SoriLab.exe
-- 예제 프로젝트: outputs/예제/다중트랙_검수.sorilab
+- 이번 검수용 실행 파일: outputs/클립자르기/실행/SoriLab.exe
+- 이번 예제 프로젝트: outputs/예제/클립자르기_검수.sorilab
 - SoriLab.sln을 Rider에서 열고 SoriLab.App을 실행합니다.
 - .NET 8 Windows 데스크톱 런타임이 필요합니다.
 - 빌드: dotnet build SoriLab.sln -c Release
@@ -15,6 +15,10 @@
 - 같은 트랙에 여러 클립을 놓을 수 있습니다. 클립은 소리 조각이고, 트랙은 클립을 담는 가로줄입니다.
 - 다른 트랙의 소리는 함께 재생합니다. 같은 트랙에서 겹치면 앞에 보이는 클립만 재생합니다.
 - 클립을 좌우 또는 다른 트랙으로 드래그해 옮깁니다. 아래 빈 행에 놓으면 새 트랙이 됩니다.
+- 클립 아래쪽 양끝의 작은 손잡이를 드래그하면 길이를 조절합니다. 위쪽 몸통은 기존처럼 이동에 사용합니다.
+- 왼쪽 손잡이는 오른쪽 끝을 고정하고, 오른쪽 손잡이는 시작 위치를 고정합니다. 원본 범위 안에서 줄였던 구간을 다시 늘릴 수 있습니다.
+- 드래그 중에는 구간과 파형만 미리 보여주고, 놓을 때 한 번 적용합니다. Esc로 취소하며 Ctrl+Z로 한 번에 되돌립니다.
+- 재생 속도와 역방향을 반영해 자르고, 원본 한 프레임 이상을 남깁니다. 페이드 길이 설정은 유지하며 바뀐 클립 양끝에 적용합니다.
 - 클립 복제는 같은 트랙의 원래 클립 끝에 붙입니다.
 - 클립이나 눈금을 클릭해 편집 커서를 옮기고, 분할 버튼 또는 S로 나눕니다.
 - 분할은 현재 속도·역재생·클립 음량·페이드를 소리에 반영한 뒤 나눕니다. 트랙 음량은 별도 설정으로 유지하며 원본 파일은 바뀌지 않습니다.
@@ -67,9 +71,10 @@
 - Home: 커서를 처음으로 (텍스트 입력 중 제외)
 
 검증
-- 오디오·조합·생성·프로젝트·다중 클립·커서 재생·트랙 음량 자동 검사 176개 통과.
+- 오디오·조합·생성·프로젝트·다중 클립·커서 재생·트랙 음량·클립 길이 조절 자동 검사 190개 통과.
 - 커서 재생 8개 앱 시나리오에서 실제 재생기의 정지·일시정지·반복과 WAV 표본 보존을 검증했습니다.
 - 트랙 음량 10개 앱 시나리오에서 실제 페이더·0dB 복원·실행 취소·클립 추가와 이동·저장과 재생 연결을 검증했습니다.
+- 클립 길이 조절은 타임라인의 실제 입력 경로를 좌표로 호출해 양끝 손잡이·미리 보기·취소·이동 구분·저장 연결을 검증했습니다.
 - 앱에서 재생·정지·실행 취소·저장·재열기 및 오류 후 작업 보존 검증.
 - 30초 스테레오 파일과 1180×800 최소 창 크기를 사용한 앱 처리 함수·화면 검증.
 - 운영체제의 실제 마우스·키보드 조작 자동화와 주관적인 청음 검수는 포함하지 않았습니다.
@@ -83,3 +88,5 @@
   https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/track_handling/track_handling_audio_overlapping_handling_t.html
 - Cubase의 커서 재생과 정지 시 시작 위치 복귀:
   https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/playback/playback_transport_menu_functions_r.html
+- Cubase의 원본 내용을 유지하는 이벤트 길이 조절:
+  https://www.steinberg.help/r/cubase-elements/15.0/en/cubase_nuendo/topics/parts_events/parts_and_events_resizing_events_with_the_object_selection_tool_normal_sizing_t.html

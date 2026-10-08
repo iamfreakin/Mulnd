@@ -133,7 +133,7 @@
     <MenuItem Header="타임라인 전체 보기" Click="OnZoomFit"/><MenuItem Header="타임라인 확대" Click="OnZoomIn"/><MenuItem Header="타임라인 축소" Click="OnZoomOut"/>
    </MenuItem>
    <MenuItem Header="도움말">
-    <MenuItem Header="편집 안내" Click="OnPlaceholder" Tag="클립을 클릭해 커서를 지정하고, S로 분할합니다. 드래그로 시간과 트랙을 옮기고, 프로젝트 저장으로 작업을 보관하세요."/>
+    <MenuItem Header="편집 안내" Click="OnPlaceholder" Tag="클립 아래쪽 양끝을 드래그해 자르거나 다시 늘립니다. 위쪽 몸통은 이동, S는 커서에서 분할, Esc는 드래그 취소, Ctrl+Z는 실행 취소입니다."/>
     <MenuItem Header="준비 중인 기능" Click="OnPlaceholder" Tag="MIDI, 외부 플러그인, 녹음, 루프 검색은 화면 틀만 준비되어 있습니다."/>
    </MenuItem>
   </Menu>

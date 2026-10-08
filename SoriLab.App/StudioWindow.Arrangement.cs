@@ -76,6 +76,24 @@ public partial class StudioWindow
         if (dialog.ShowDialog(this) == true) await AddAudioAsync(dialog.FileNames, selected.EffectiveLaneId);
     }
 
+    private void TrimClip(Guid id, ClipTrimEdge edge, double timelineSeconds)
+    {
+        if (_busy || !CommitNumbers()) { RefreshControls(); return; }
+        var original = _state.Tracks.FirstOrDefault(track => track.Id == id);
+        if (original is null) return;
+        try
+        {
+            var trimmed = ClipEditing.Trim(original, edge, timelineSeconds);
+            var previous = _state.Id;
+            CommitState(_state.Tracks.Select(track => track.Id == id ? trimmed : track).ToArray(),
+                _state.MasterDb, "clip-trim", id);
+            if (_state.Id != previous)
+                Status("클립 구간을 조절했습니다. 원본 범위 안에서 다시 늘릴 수 있으며 Ctrl+Z로 되돌릴 수 있습니다.");
+        }
+        catch (Exception ex) when (IsExpected(ex)) { Status("클립 구간을 조절하지 못했습니다. " + ex.Message, true); }
+        finally { RefreshControls(); }
+    }
+
     private async void OnSplit(object sender, RoutedEventArgs e) => await SplitSelectedAsync();
     private async Task SplitSelectedAsync()
     {
