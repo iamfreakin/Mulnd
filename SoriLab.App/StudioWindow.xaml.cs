@@ -42,7 +42,10 @@ public partial class StudioWindow : Window
         _savedId = _state.Id;
         _history.Add(_state);
         Timeline.TrackSelected += id => SelectTrack(id);
-        Timeline.TrackMoved += (id, offset) => UpdateTrack(id, t => t with { OffsetSeconds = offset }, "move");
+        Timeline.ClipMoved += MoveClip;
+        Timeline.CursorChanged += SetEditCursor;
+        TimelineScroll.SizeChanged += (_, _) => UpdateTimelineViewport();
+        TimelineScroll.ScrollChanged += (_, _) => UpdateTimelineViewport();
         SourceWaveform.SelectionChanged += (start, end) => UpdateSelected(t => t with { Edit = t.Edit with { StartFrame = start, EndFrame = end } }, "trim");
         SourceWaveform.Focusable = true;
         SourceWaveform.PreviewMouseDown += (_, e) => { if (!CommitNumbers()) e.Handled = true; else SourceWaveform.Focus(); };
@@ -113,12 +116,14 @@ public partial class StudioWindow : Window
         Timeline.Tracks = _state.Tracks;
         Timeline.SelectedTrackId = _selectedId;
         TimelineEmpty.Visibility = _state.Tracks.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        TrackSummary.Text = $"타임라인 · {_state.Tracks.Length}개 트랙 · 48,000 Hz 스테레오";
+        TrackSummary.Text = $"{_state.Tracks.Select(t => t.EffectiveLaneId).Distinct().Count()}개 트랙 · {_state.Tracks.Length}개 클립";
         ProjectName.Text = (_projectPath is null ? "새 프로젝트" : Path.GetFileNameWithoutExtension(_projectPath)) + (IsDirty ? "  • 저장 전" : "  • 저장됨");
         Title = "소리공방 · " + ProjectName.Text;
         var selected = Selected;
         Inspector.IsEnabled = !_busy;
         TrackCommands.IsEnabled = selected is not null && !_busy;
+        AddToTrackButton.IsEnabled = selected is not null && !_busy;
+        ArrangementCommands.IsEnabled = !_busy;
         foreach (Control control in new Control[] { OffsetInput, StartInput, EndInput, GainSlider, FadeInSlider, FadeOutSlider, RateSlider, ReverseCheck }) control.IsEnabled = selected is not null;
         if (selected is not null)
         {
@@ -145,7 +150,7 @@ public partial class StudioWindow : Window
         }
         else
         {
-            SourceWaveform.Clip = null; SelectedName.Text = "트랙을 선택하세요"; SourceLabel.Text = "선택한 트랙의 원본 구간";
+            SourceWaveform.Clip = null; SelectedName.Text = "클립을 선택하세요"; SourceLabel.Text = "선택한 클립의 원본 구간";
             StartInput.Text = EndInput.Text = OffsetInput.Text = "0";
         }
         UndoButton.IsEnabled = _historyIndex > 0;
@@ -155,13 +160,14 @@ public partial class StudioWindow : Window
         DurationText.Text = $"전체 {GetAudibleDuration():0.###}초";
         ExportButton.IsEnabled = _state.Tracks.Length > 0;
         PlayButton.IsEnabled = _state.Tracks.Length > 0 && !_busy;
+        RefreshCursorControls();
         _syncing = false;
     }
 
     private double GetAudibleDuration()
     {
         bool solo = _state.Tracks.Any(t => t.Solo);
-        return _state.Tracks.Where(t => !t.Muted && (!solo || t.Solo)).Select(t => t.OffsetSeconds + AudioMixer.GetDurationSeconds(t)).DefaultIfEmpty(0).Max();
+        return _state.Tracks.Where(t => !t.Muted && (!solo || t.Solo)).Select(t => AudioMixer.GetEndSeconds(t)).DefaultIfEmpty(0).Max();
     }
 
     private bool CommitNumbers()
@@ -196,12 +202,22 @@ public partial class StudioWindow : Window
     private void OnTrackSwitch(object sender, RoutedEventArgs e)
     {
         if (_syncing || Selected is null || ReverseCheck is null) return;
-        UpdateSelected(t => t with { Muted = MuteCheck.IsChecked == true, Solo = SoloCheck.IsChecked == true, Reverse = ReverseCheck.IsChecked == true }, "switch");
+        if (sender == ReverseCheck) UpdateSelected(t => t with { Reverse = ReverseCheck.IsChecked == true }, "reverse");
+        else
+        {
+            Guid lane = Selected.EffectiveLaneId;
+            CommitState(_state.Tracks.Select(t => t.EffectiveLaneId == lane ? t with { Muted = MuteCheck.IsChecked == true, Solo = SoloCheck.IsChecked == true } : t).ToArray(), _state.MasterDb, "lane-switch");
+        }
     }
     private void OnSelectAll(object sender, RoutedEventArgs e) => UpdateSelected(t => t with { Edit = t.Edit with { StartFrame = 0, EndFrame = t.Source.FrameCount } }, "all");
     private void OnReset(object sender, RoutedEventArgs e) => UpdateSelected(t => t with { Edit = new EditSettings(0, t.Source.FrameCount, 0, 0, 0), PlaybackRate = 1, Reverse = false }, "reset");
     private void OnRemove(object sender, RoutedEventArgs e) { if (_selectedId.HasValue) CommitState(_state.Tracks.Where(t => t.Id != _selectedId).ToArray(), _state.MasterDb, "remove"); }
-    private void OnDuplicate(object sender, RoutedEventArgs e) { if (Selected is { } track) { var copy = track with { Id = Guid.NewGuid() }; CommitState([.. _state.Tracks, copy], _state.MasterDb, "duplicate", copy.Id); } }
+    private void OnDuplicate(object sender, RoutedEventArgs e)
+    {
+        if (!CommitNumbers() || Selected is not { } track) return;
+        var copy = track with { Id = Guid.NewGuid(), LaneId = track.EffectiveLaneId, OffsetSeconds = AudioMixer.GetEndSeconds(track) };
+        CommitState([.. _state.Tracks, copy], _state.MasterDb, "duplicate", copy.Id);
+    }
     private void OnUndo(object sender, RoutedEventArgs e) => MoveHistory(-1);
     private void OnRedo(object sender, RoutedEventArgs e) => MoveHistory(1);
     private void MoveHistory(int direction)
@@ -215,13 +231,16 @@ public partial class StudioWindow : Window
     }
 
     public Task LoadFileAsync(string path) => AddAudioAsync([path]);
-    private async Task AddAudioAsync(string[] paths)
+    private async Task AddAudioAsync(string[] paths, Guid? laneId = null)
     {
         if (_busy || paths.Length == 0 || !CommitNumbers()) return;
         SetBusy(true); StopPlayback(true); Status("WAV 파일을 불러오고 있습니다…");
         try
         {
-            if (_state.Tracks.Length + paths.Length > 32) throw new ArgumentException("트랙은 최대 32개까지 추가할 수 있습니다.");
+            if (_state.Tracks.Length + paths.Length > AudioMixer.MaximumClips) throw new ArgumentException("클립은 최대 128개까지 추가할 수 있습니다.");
+            if (!laneId.HasValue && _state.Tracks.Select(t => t.EffectiveLaneId).Distinct().Count() + paths.Length > AudioMixer.MaximumTracks) throw new ArgumentException("트랙은 최대 32개까지 추가할 수 있습니다.");
+            var lane = _state.Tracks.FirstOrDefault(t => t.EffectiveLaneId == laneId);
+            double insertAt = laneId.HasValue ? _editCursor : 0;
             var existingSources = new HashSet<AudioClip>(_state.Tracks.Select(t => t.Source), ReferenceEqualityComparer.Instance);
             long sourceSamples = existingSources.Sum(source => (long)source.Samples.Length);
             var added = await Task.Run(() =>
@@ -233,7 +252,9 @@ public partial class StudioWindow : Window
                     sourceSamples += source.Samples.Length;
                     if (sourceSamples > 32_000_000) throw new ArgumentException("원본 데이터 합계가 한도를 넘습니다. 더 짧은 소리로 나누어 추가해 주세요.");
                     int end = (int)Math.Min(source.FrameCount, source.SampleRate * 120L);
-                    result.Add(new AudioTrack(Guid.NewGuid(), source, new EditSettings(0, end, 0, 0, 0), SourcePath: Path.GetFullPath(path)));
+                    var addedClip = new AudioTrack(Guid.NewGuid(), source, new EditSettings(0, end, 0, 0, 0), insertAt, Muted: lane?.Muted ?? false, Solo: lane?.Solo ?? false, SourcePath: Path.GetFullPath(path), LaneId: laneId);
+                    result.Add(addedClip);
+                    if (laneId.HasValue) insertAt = AudioMixer.GetEndSeconds(addedClip);
                 }
                 return result.ToArray();
             });
@@ -363,7 +384,7 @@ public partial class StudioWindow : Window
         _state = new Snapshot(Guid.NewGuid(), tracks, masterDb); _savedId = _state.Id;
         _history.Clear(); _history.Add(_state); _historyIndex = 0; _coalesceKind = null;
         _selectedId = tracks.Any(t => t.Id == selected) ? selected : tracks.FirstOrDefault()?.Id;
-        _projectPath = path; RefreshControls(); SchedulePeak();
+        _projectPath = path; _editCursor = 0; RefreshControls(); SchedulePeak();
     }
     private async Task<bool> ConfirmLeaveAsync()
     {
@@ -387,9 +408,12 @@ public partial class StudioWindow : Window
         FileCommands.IsEnabled = AddCommands.IsEnabled = !value;
         Inspector.IsEnabled = !value;
         TrackCommands.IsEnabled = !value && Selected is not null;
+        ArrangementCommands.IsEnabled = !value;
+        AddToTrackButton.IsEnabled = !value && Selected is not null;
         Timeline.IsEnabled = SourceWaveform.IsEnabled = MasterSlider.IsEnabled = !value;
         PlayButton.IsEnabled = !value && _state.Tracks.Length > 0;
         SelectedOnlyCheck.IsEnabled = BypassCheck.IsEnabled = !value;
+        RefreshCursorControls();
     }
     private void OnShortcut(object sender, KeyEventArgs e)
     {
@@ -398,6 +422,9 @@ public partial class StudioWindow : Window
         if (e.OriginalSource is TextBox) return;
         if (ctrl && e.Key == Key.Z) { MoveHistory(-1); e.Handled = true; }
         else if (ctrl && e.Key == Key.Y) { MoveHistory(1); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D) { OnDuplicate(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.None) { OnSplit(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (e.Key == Key.Delete) { OnRemove(this, new RoutedEventArgs()); e.Handled = true; }
         else if (e.Key == Key.Space && e.OriginalSource is not Button && e.OriginalSource is not CheckBox) { OnPlay(this, new RoutedEventArgs()); e.Handled = true; }
     }
     private bool IsProtectedPath(string path) => string.Equals(Path.GetFullPath(path), _projectPath, StringComparison.OrdinalIgnoreCase) || _protectedSources.Contains(Path.GetFullPath(path));
@@ -505,6 +532,7 @@ public partial class StudioWindow : Window
         CommitState([.. _state.Tracks, generatedTrack], _state.MasterDb, "generate-check", generatedTrack.Id);
         if (_state.Tracks.Length != 3) throw new InvalidOperationException("생성한 소리 트랙 추가 실패");
         await RunRegressionChecksAsync(outputBase);
+        await RunArrangementChecksAsync(outputBase);
         _projectPath = outputBase + ".sorilab";
         var beforeSave = RenderSnapshot(_state, null, false);
         if (!await SaveProjectAsync(false) || IsDirty) throw new InvalidOperationException("프로젝트 저장 상태 검증 실패");

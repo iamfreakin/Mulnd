@@ -9,4 +9,8 @@ public sealed record AudioTrack(
     bool Reverse = false,
     bool Muted = false,
     bool Solo = false,
-    string? SourcePath = null);
+    string? SourcePath = null,
+    Guid? LaneId = null)
+{
+    public Guid EffectiveLaneId => LaneId ?? Id;
+}

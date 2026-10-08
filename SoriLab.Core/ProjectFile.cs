@@ -59,7 +59,8 @@ public static class ProjectFile
                     FadeInMs = track.Edit.FadeInMs, FadeOutMs = track.Edit.FadeOutMs
                 },
                 OffsetSeconds = track.OffsetSeconds, PlaybackRate = track.PlaybackRate,
-                Reverse = track.Reverse, Muted = track.Muted, Solo = track.Solo, SourcePath = track.SourcePath
+                Reverse = track.Reverse, Muted = track.Muted, Solo = track.Solo, SourcePath = track.SourcePath,
+                LaneId = track.LaneId
             }).ToArray()
         };
         ValidateManifest(manifest);
@@ -182,7 +183,7 @@ public static class ProjectFile
         var tracks = manifest.Tracks.Select(track => new AudioTrack(
             track.Id, sources[track.SourceId],
             new EditSettings(track.Edit.StartFrame, track.Edit.EndFrame, track.Edit.GainDb, track.Edit.FadeInMs, track.Edit.FadeOutMs),
-            track.OffsetSeconds, track.PlaybackRate, track.Reverse, track.Muted, track.Solo, track.SourcePath)).ToArray();
+            track.OffsetSeconds, track.PlaybackRate, track.Reverse, track.Muted, track.Solo, track.SourcePath, track.LaneId)).ToArray();
         AudioMixer.Validate(tracks, ProjectSampleRate, manifest.MasterGainDb);
         return new ProjectDocument(tracks, manifest.MasterGainDb, manifest.SelectedTrackId);
     }
@@ -196,8 +197,8 @@ public static class ProjectFile
         if (!double.IsFinite(manifest.MasterGainDb) || manifest.MasterGainDb is < -60 or > 12)
             throw new InvalidDataException("프로젝트 전체 음량이 허용 범위를 벗어났습니다.");
         if (manifest.Sources is null || manifest.Sources.Length > MaximumSources ||
-            manifest.Tracks is null || manifest.Tracks.Length > AudioMixer.MaximumTracks)
-            throw new InvalidDataException("프로젝트는 최대 32개의 원본과 트랙을 지원합니다.");
+            manifest.Tracks is null || manifest.Tracks.Length > AudioMixer.MaximumClips)
+            throw new InvalidDataException("프로젝트는 최대 32개의 원본과 128개의 클립을 지원합니다.");
 
         var sources = new Dictionary<Guid, SourceManifest>();
         long totalSamples = 0;
@@ -217,11 +218,25 @@ public static class ProjectFile
 
         var identifiers = new HashSet<Guid>();
         var referencedSources = new HashSet<Guid>();
+        var lanes = new Dictionary<Guid, (bool Muted, bool Solo)>();
         var hasSolo = manifest.Tracks.Any(track => track is not null && track.Solo);
         foreach (var track in manifest.Tracks)
         {
             if (track is null || !identifiers.Add(track.Id) || !sources.TryGetValue(track.SourceId, out var source))
                 throw new InvalidDataException("트랙 식별자가 중복되었거나 연결된 원본이 없습니다.");
+            // 이전 v1에는 laneId가 없으므로 해당 클립을 독립된 트랙으로 복원합니다.
+            var laneId = track.LaneId ?? track.Id;
+            if (lanes.TryGetValue(laneId, out var laneState))
+            {
+                if (laneState != (track.Muted, track.Solo))
+                    throw new InvalidDataException("같은 트랙의 클립은 음소거와 단독 재생 설정이 같아야 합니다.");
+            }
+            else
+            {
+                lanes.Add(laneId, (track.Muted, track.Solo));
+                if (lanes.Count > AudioMixer.MaximumTracks)
+                    throw new InvalidDataException("프로젝트에는 최대 32개의 트랙을 넣을 수 있습니다.");
+            }
             referencedSources.Add(track.SourceId);
             var edit = track.Edit;
             if (edit is null || edit.StartFrame < 0 || edit.EndFrame > source.SampleCount / source.Channels || edit.EndFrame <= edit.StartFrame)
@@ -358,6 +373,7 @@ public static class ProjectFile
         public required bool Muted { get; init; }
         public required bool Solo { get; init; }
         public required string? SourcePath { get; init; }
+        public Guid? LaneId { get; init; }
     }
 
     private sealed class EditManifest

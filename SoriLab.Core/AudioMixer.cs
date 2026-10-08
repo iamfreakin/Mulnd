@@ -3,6 +3,8 @@ namespace SoriLab.Core;
 public static class AudioMixer
 {
     public const int MaximumTracks = 32;
+    public const int MaximumClips = 128;
+    public const int MaximumSources = 32;
     public const double MaximumDurationSeconds = 120;
     private const int PhaseCount = 1024;
     private const int BaseTapCount = 32;
@@ -21,17 +23,27 @@ public static class AudioMixer
 
         var frameCount = audible.Max(track => GetOffsetFrames(track, sampleRate) + GetOutputFrames(track, sampleRate));
         var summed = new double[frameCount * 2];
-        foreach (var track in audible)
+        int[]? owners = null;
+        foreach (var lane in audible.GroupBy(track => track.EffectiveLaneId))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var rendered = RenderTrackCore(track, sampleRate, cancellationToken);
-            var firstSample = GetOffsetFrames(track, sampleRate) * 2;
-            for (var sample = 0; sample < rendered.Samples.Length; sample++)
+            var clips = lane.ToArray();
+            if (clips.Length == 1)
             {
-                if ((sample & 8191) == 0)
-                    cancellationToken.ThrowIfCancellationRequested();
-                summed[firstSample + sample] += rendered.Samples[sample];
+                AddClip(summed, clips[0], sampleRate, null, 0, cancellationToken);
+                continue;
             }
+
+            // 트랙마다 오디오 배열을 만들지 않고, 어느 클립이 앞에 있는지만 재사용 배열에 기록합니다.
+            owners ??= new int[frameCount];
+            Array.Fill(owners, -1);
+            for (var index = 0; index < clips.Length; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Array.Fill(owners, index, GetOffsetFrames(clips[index], sampleRate), GetOutputFrames(clips[index], sampleRate));
+            }
+            for (var index = 0; index < clips.Length; index++)
+                AddClip(summed, clips[index], sampleRate, owners, index, cancellationToken);
         }
 
         var masterGain = Math.Pow(10, masterGainDb / 20);
@@ -63,6 +75,14 @@ public static class AudioMixer
         return GetDurationSecondsCore(track);
     }
 
+    // 이어 붙이는 위치도 실제 출력 프레임을 따라야 마지막 샘플이 겹치거나 빠지지 않습니다.
+    public static double GetEndSeconds(AudioTrack track, int sampleRate = 48000)
+    {
+        ValidateSampleRate(sampleRate);
+        ValidateTrack(track);
+        return ((long)GetOffsetFrames(track, sampleRate) + GetOutputFrames(track, sampleRate)) / (double)sampleRate;
+    }
+
     // 빈 프로젝트와 모두 음소거된 프로젝트도 저장할 수 있어야 하므로 재생 가능 여부는 Render에서 판단합니다.
     public static void Validate(IReadOnlyList<AudioTrack> tracks, int sampleRate = 48000, double masterGainDb = 0) =>
         ValidateCore(tracks, sampleRate, masterGainDb, CancellationToken.None);
@@ -71,23 +91,32 @@ public static class AudioMixer
     {
         if (tracks is null)
             throw new ArgumentNullException(nameof(tracks), "트랙 목록이 없습니다.");
-        if (tracks.Count > MaximumTracks)
-            throw new ArgumentException("프로젝트에는 최대 32개의 트랙을 넣을 수 있습니다.", nameof(tracks));
+        if (tracks.Count > MaximumClips)
+            throw new ArgumentException("프로젝트에는 최대 128개의 클립을 넣을 수 있습니다.", nameof(tracks));
         ValidateSampleRate(sampleRate);
         if (!double.IsFinite(masterGainDb) || masterGainDb is < -60 or > 12)
             throw new ArgumentException("전체 음량은 -60dB부터 +12dB 사이로 설정해 주세요.", nameof(masterGainDb));
 
         var sources = new HashSet<AudioClip>(ReferenceEqualityComparer.Instance);
         var identifiers = new HashSet<Guid>();
+        var lanes = new Dictionary<Guid, (bool Muted, bool Solo)>();
         long sourceSamples = 0;
         foreach (var track in tracks)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ValidateTrack(track);
             if (!identifiers.Add(track.Id))
-                throw new ArgumentException("같은 식별자를 가진 트랙이 중복되어 있습니다.", nameof(tracks));
+                throw new ArgumentException("같은 식별자를 가진 클립이 중복되어 있습니다.", nameof(tracks));
+            var laneState = (track.Muted, track.Solo);
+            if (lanes.TryGetValue(track.EffectiveLaneId, out var existingState) && existingState != laneState)
+                throw new ArgumentException("같은 트랙의 클립은 음소거·단독 재생 설정이 같아야 합니다.", nameof(tracks));
+            lanes[track.EffectiveLaneId] = laneState;
+            if (lanes.Count > MaximumTracks)
+                throw new ArgumentException("프로젝트에는 최대 32개의 트랙을 넣을 수 있습니다.", nameof(tracks));
             if (sources.Add(track.Source))
             {
+                if (sources.Count > MaximumSources)
+                    throw new ArgumentException("프로젝트에는 서로 다른 원본을 최대 32개까지 넣을 수 있습니다.", nameof(tracks));
                 sourceSamples += track.Source.Samples.Length;
                 if (sourceSamples > AudioValidation.MaximumSamples)
                     throw new ArgumentException("프로젝트 원본 데이터가 너무 큽니다. 합계 3,200만 개의 샘플까지 지원합니다.", nameof(tracks));
@@ -151,6 +180,27 @@ public static class AudioMixer
     {
         var hasSolo = tracks.Any(track => track.Solo);
         return tracks.Where(track => !track.Muted && (!hasSolo || track.Solo)).ToArray();
+    }
+
+    private static void AddClip(double[] summed, AudioTrack track, int sampleRate, int[]? owners, int ownerIndex, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var firstFrame = GetOffsetFrames(track, sampleRate);
+        var frames = GetOutputFrames(track, sampleRate);
+        if (owners is not null && Array.IndexOf(owners, ownerIndex, firstFrame, frames) < 0)
+            return;
+        var rendered = RenderTrackCore(track, sampleRate, cancellationToken);
+        for (var frame = 0; frame < frames; frame++)
+        {
+            if ((frame & 4095) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+            var targetFrame = firstFrame + frame;
+            // 앞 클립이 무음이어도 뒤의 소리를 통과시키지 않고 표시된 클립만 재생합니다.
+            if (owners is not null && owners[targetFrame] != ownerIndex)
+                continue;
+            summed[targetFrame * 2] += rendered.Samples[frame * 2];
+            summed[targetFrame * 2 + 1] += rendered.Samples[frame * 2 + 1];
+        }
     }
 
     private static double GetDurationSecondsCore(AudioTrack track) =>

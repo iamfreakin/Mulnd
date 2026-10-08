@@ -23,6 +23,13 @@ public static class ProjectChecks
             ("float32 비트와 음수 0의 무손실 저장", () => ExactFloatBits(dir)),
             ("공유 원본의 파일 중복 제거와 참조 복원", () => SharedSources(baseline)),
             ("48kHz 혼합 결과의 비트 일치", () => RenderRoundtrip(original, ProjectFile.Load(baseline))),
+            ("트랙 묶음 식별자와 여러 클립 혼합의 복원", () => LaneRoundtrip(dir, original)),
+            ("laneId 없는 이전 v1 프로젝트 호환", () => LegacyLaneMissing(dir, baseline, original)),
+            ("같은 트랙에 클립 33개 저장", () => SameLaneClips(dir, 33)),
+            ("같은 트랙에 클립 128개 저장", () => SameLaneClips(dir, 128)),
+            ("클립 129개 저장과 열기 거부", () => TooManyClips(dir)),
+            ("같은 트랙의 서로 다른 음소거 설정 거부", () => InconsistentLaneState(dir, true)),
+            ("같은 트랙의 서로 다른 단독 재생 설정 거부", () => InconsistentLaneState(dir, false)),
             ("외부 원본이 없어도 프로젝트 열기", () => MissingExternalSource(baseline)),
             ("빈 프로젝트 저장과 재열기", () => EmptyProject(dir)),
             ("모든 트랙 음소거 상태 저장", () => AllMutedProject(dir, original)),
@@ -49,10 +56,16 @@ public static class ProjectChecks
                 var sources = json["sources"]!.AsArray();
                 while (sources.Count <= 32) sources.Add(sources[0]!.DeepClone());
             })),
-            ("트랙 개수 한도 거부", () => RejectManifest(dir, baseline, json =>
+            ("서로 다른 트랙 33개의 개수 한도 거부", () => RejectManifest(dir, baseline, json =>
             {
                 var tracks = json["tracks"]!.AsArray();
-                while (tracks.Count <= 32) tracks.Add(tracks[0]!.DeepClone());
+                while (tracks.Count <= 32)
+                {
+                    var track = tracks[0]!.DeepClone().AsObject();
+                    track["id"] = Guid.NewGuid().ToString();
+                    track.Remove("laneId");
+                    tracks.Add(track);
+                }
             })),
             ("잘못된 체크섬 문자열 거부", () => RejectManifest(dir, baseline, json => Source(json, 0)["sha256"] = new string('X', 64))),
             ("필수 항목 누락과 null 거부", () => MissingMetadata(dir, baseline)),
@@ -158,6 +171,93 @@ public static class ProjectChecks
         // 음소거됐던 스테레오 원본도 켜서 두 샘플레이트와 채널 구성의 복원을 확인합니다.
         SameBits(AudioMixer.Render(before.Tracks.Select(track => track with { Muted = false, Solo = false }).ToArray()).Samples,
             AudioMixer.Render(after.Tracks.Select(track => track with { Muted = false, Solo = false }).ToArray()).Samples);
+    }
+
+    private static void LaneRoundtrip(string dir, ProjectDocument basis)
+    {
+        var laneId = Guid.NewGuid();
+        var project = basis with
+        {
+            Tracks =
+            [
+                basis.Tracks[0] with { LaneId = laneId },
+                basis.Tracks[1] with { LaneId = laneId },
+                basis.Tracks[2] with { LaneId = Guid.NewGuid() }
+            ]
+        };
+        var path = Path.Combine(dir, "project-lanes.sorilab");
+        ProjectFile.Save(path, project);
+        var loaded = ProjectFile.Load(path);
+        MetadataRoundtrip(project, loaded);
+        True(loaded.Tracks[0].EffectiveLaneId == laneId && loaded.Tracks[1].EffectiveLaneId == laneId,
+            "같은 트랙의 클립 묶음이 복원되지 않았습니다.");
+        RenderRoundtrip(project, loaded);
+    }
+
+    private static void LegacyLaneMissing(string dir, string baseline, ProjectDocument expected)
+    {
+        var path = Path.Combine(dir, "project-legacy-lanes.sorilab");
+        WriteMutatedPackage(baseline, path, entries =>
+        {
+            var index = entries.FindIndex(entry => entry.Name == "manifest.json");
+            var json = JsonNode.Parse(entries[index].Bytes)!.AsObject();
+            foreach (var item in json["tracks"]!.AsArray()) item!.AsObject().Remove("laneId");
+            entries[index] = new("manifest.json", Encoding.UTF8.GetBytes(json.ToJsonString()));
+        });
+        var loaded = ProjectFile.Load(path);
+        MetadataRoundtrip(expected, loaded);
+        True(loaded.Tracks.All(track => track.LaneId is null && track.EffectiveLaneId == track.Id),
+            "이전 v1의 각 클립은 독립된 트랙으로 열려야 합니다.");
+        RenderRoundtrip(expected, loaded);
+    }
+
+    private static ProjectDocument LaneProject(int clipCount)
+    {
+        var laneId = Guid.NewGuid();
+        var source = new AudioClip("한 트랙의 공유 원본", 48000, 1,
+            Enumerable.Range(0, 16).Select(index => (index - 7) / 32f).ToArray());
+        var tracks = Enumerable.Range(0, clipCount).Select(index => new AudioTrack(
+            Guid.NewGuid(), source, new EditSettings(0, 16, -(index % 4), 0, 0),
+            OffsetSeconds: index * 0.002, Reverse: index % 2 == 1, LaneId: laneId)).ToArray();
+        return new ProjectDocument(tracks, -2, tracks[0].Id);
+    }
+
+    private static void SameLaneClips(string dir, int clipCount)
+    {
+        var project = LaneProject(clipCount);
+        var path = Path.Combine(dir, $"project-{clipCount}-clips.sorilab");
+        ProjectFile.Save(path, project);
+        var loaded = ProjectFile.Load(path);
+        MetadataRoundtrip(project, loaded);
+        True(loaded.Tracks.Length == clipCount && loaded.Tracks.Select(track => track.EffectiveLaneId).Distinct().Count() == 1,
+            "클립 수 또는 트랙 묶음 수가 달라졌습니다.");
+        True(loaded.Tracks.All(track => ReferenceEquals(loaded.Tracks[0].Source, track.Source)),
+            "여러 클립의 원본 공유가 복원되지 않았습니다.");
+        RenderRoundtrip(project, loaded);
+    }
+
+    private static void TooManyClips(string dir)
+    {
+        var path = Path.Combine(dir, "project-clip-limit.sorilab");
+        RejectSave(() => ProjectFile.Save(path, LaneProject(129)));
+        ProjectFile.Save(path, LaneProject(128));
+        RejectManifest(dir, path, json =>
+        {
+            var tracks = json["tracks"]!.AsArray();
+            var extra = tracks[0]!.DeepClone().AsObject();
+            extra["id"] = Guid.NewGuid().ToString();
+            tracks.Add(extra);
+        });
+    }
+
+    private static void InconsistentLaneState(string dir, bool muted)
+    {
+        var project = LaneProject(2);
+        var changed = project.Tracks[1] with { Muted = muted, Solo = !muted };
+        var path = Path.Combine(dir, muted ? "project-lane-mute.sorilab" : "project-lane-solo.sorilab");
+        RejectSave(() => ProjectFile.Save(path, project with { Tracks = [project.Tracks[0], changed] }));
+        ProjectFile.Save(path, project);
+        RejectManifest(dir, path, json => Track(json, 1)[muted ? "muted" : "solo"] = true);
     }
 
     private static void MissingExternalSource(string path)
@@ -325,6 +425,13 @@ public static class ProjectChecks
 
     private static void RejectPackage(string dir, string path, Action<List<PackageEntry>> mutate)
     {
+        var target = Path.Combine(dir, "project-malformed.sorilab");
+        WriteMutatedPackage(path, target, mutate);
+        ThrowsInvalidData(() => ProjectFile.Load(target));
+    }
+
+    private static void WriteMutatedPackage(string path, string target, Action<List<PackageEntry>> mutate)
+    {
         var entries = new List<PackageEntry>();
         using (var archive = ZipFile.OpenRead(path))
         {
@@ -337,7 +444,6 @@ public static class ProjectChecks
             }
         }
         mutate(entries);
-        var target = Path.Combine(dir, "project-malformed.sorilab");
         using (var file = File.Create(target))
         using (var archive = new ZipArchive(file, ZipArchiveMode.Create))
         {
@@ -347,7 +453,6 @@ public static class ProjectChecks
                 output.Write(entry.Bytes);
             }
         }
-        ThrowsInvalidData(() => ProjectFile.Load(target));
     }
 
     private static JsonObject Track(JsonObject json, int index) => json["tracks"]![index]!.AsObject();

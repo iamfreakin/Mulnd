@@ -88,6 +88,8 @@ internal static class Program
             Console.WriteLine($"생성 검증: {generatorPassed}개 통과");
             int projectPassed = ProjectChecks.Run(args[0]);
             Console.WriteLine($"프로젝트 검증: {projectPassed}개 통과");
+            int lanePassed = LaneChecks.Run(args[0]);
+            Console.WriteLine($"트랙 배치 검증: {lanePassed}개 통과");
         }
         catch (Exception error) { Console.Error.WriteLine("추가 기능 검증 실패: " + error); return 1; }
         return passed == tests.Length ? 0 : 1;
