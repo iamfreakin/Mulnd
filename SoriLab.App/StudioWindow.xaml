@@ -129,6 +129,7 @@
     <MenuItem Header="오디오 편집기" IsCheckable="True" IsChecked="{Binding IsChecked, ElementName=EditorToggle, Mode=OneWay}" Click="OnToggleEditor"/>
     <MenuItem Header="믹서" IsCheckable="True" IsChecked="{Binding IsChecked, ElementName=MixerToggle, Mode=OneWay}" Click="OnToggleMixer"/>
     <MenuItem Header="브라우저" IsCheckable="True" IsChecked="{Binding IsChecked, ElementName=BrowserToggle, Mode=OneWay}" Click="OnToggleBrowser"/><Separator/>
+    <MenuItem Header="커서를 처음으로" InputGestureText="Home" Click="OnGoToStart"/>
     <MenuItem Header="타임라인 전체 보기" Click="OnZoomFit"/><MenuItem Header="타임라인 확대" Click="OnZoomIn"/><MenuItem Header="타임라인 축소" Click="OnZoomOut"/>
    </MenuItem>
    <MenuItem Header="도움말">
@@ -216,7 +217,7 @@
     <Grid x:Name="ArrangementCommands" Margin="8,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
      <StackPanel Orientation="Horizontal">
       <TextBlock Text="커서" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-      <TextBox x:Name="CursorInput" Text="0" Width="78" Padding="5,2" FontFamily="Consolas" LostKeyboardFocus="OnCursorCommitted" KeyDown="OnCursorKeyDown"/>
+      <TextBox x:Name="CursorInput" Text="0" Width="78" Padding="5,2" FontFamily="Consolas" LostKeyboardFocus="OnCursorCommitted" KeyDown="OnCursorKeyDown" ToolTip="재생과 분할을 시작할 위치 · 초"/>
       <TextBlock Text="초" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="4,0,9,0"/>
       <Button x:Name="SplitButton" Content="분할" Click="OnSplit" Padding="9,3" ToolTip="S · 현재 효과를 반영한 뒤 커서에서 분할합니다. 원본 파일은 보존됩니다."/>
      </StackPanel>
@@ -307,20 +308,21 @@
 
   <Border Grid.Row="4" Grid.ColumnSpan="3" Background="#292F37" BorderBrush="#495562" BorderThickness="0,1,0,0">
    <Grid Margin="10,7,10,6">
-    <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="190"/><ColumnDefinition Width="194"/><ColumnDefinition Width="151"/><ColumnDefinition Width="125"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="190"/><ColumnDefinition Width="228"/><ColumnDefinition Width="151"/><ColumnDefinition Width="125"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <StackPanel VerticalAlignment="Center"><TextBlock Text="오디오" Style="{StaticResource Caption}"/><TextBlock Text="48 kHz" Foreground="#B4C5D4" FontSize="13" FontFamily="Consolas" Margin="0,2,0,0"/><TextBlock Text="스테레오" Style="{StaticResource Caption}"/></StackPanel>
     <Border Grid.Column="1" Background="#1C242D" BorderBrush="#435362" BorderThickness="1" Padding="10,3" Margin="0,0,13,0">
      <StackPanel VerticalAlignment="Center"><TextBlock x:Name="PositionText" Text="00:00.000" FontFamily="Consolas" FontSize="23" Foreground="#CBDDEA"/><TextBlock x:Name="DurationText" Text="전체 0초" Style="{StaticResource Caption}"/></StackPanel>
     </Border>
     <StackPanel Grid.Column="2" VerticalAlignment="Center">
      <StackPanel Orientation="Horizontal">
-      <Button Content="■" Click="OnStop" Width="30" Padding="0" Margin="0,0,4,0" ToolTip="정지"/>
-      <Button x:Name="PlayButton" Content="▶ 전체 재생" Click="OnPlay" Width="108" Padding="5,6" Style="{StaticResource AccentButton}"/>
+      <Button Content="|◀" Click="OnGoToStart" Width="30" Padding="0" Margin="0,0,4,0" ToolTip="Home · 커서를 처음으로"/>
+      <Button Content="■" Click="OnStop" Width="30" Padding="0" Margin="0,0,4,0" ToolTip="정지 · 재생 시작 커서로 복귀"/>
+      <Button x:Name="PlayButton" Content="▶ 커서 재생" Click="OnPlay" Width="108" Padding="5,6" Style="{StaticResource AccentButton}" ToolTip="커서부터 재생 · 일시정지 후에는 멈춘 위치부터 이어 듣기"/>
       <Button Content="●" IsEnabled="False" Width="30" Padding="0" Margin="4,0,0,0" Foreground="#CF7B7B" FontSize="18" ToolTip="녹음 기능은 준비 중입니다."/>
      </StackPanel>
      <TextBlock Text="녹음 · 준비 중" Style="{StaticResource Caption}" HorizontalAlignment="Right" Margin="0,3,17,0"/>
     </StackPanel>
-    <StackPanel Grid.Column="3" VerticalAlignment="Center"><CheckBox x:Name="LoopCheck" Content="반복 재생"/><CheckBox x:Name="SelectedOnlyCheck" Content="선택 이벤트만 듣기" Checked="OnListeningChanged" Unchecked="OnListeningChanged" Margin="0,7,0,0"/></StackPanel>
+    <StackPanel Grid.Column="3" VerticalAlignment="Center"><CheckBox x:Name="LoopCheck" Content="시작점부터 반복"/><CheckBox x:Name="SelectedOnlyCheck" Content="선택 이벤트만 듣기" Checked="OnListeningChanged" Unchecked="OnListeningChanged" Margin="0,7,0,0" ToolTip="커서가 선택 클립 밖에 있으면 클립 시작부터 재생합니다."/></StackPanel>
     <Border Grid.Column="4" BorderBrush="#43505D" BorderThickness="1,0,0,0" Padding="13,0,0,0">
      <StackPanel VerticalAlignment="Center"><TextBlock Text="템포 / 박자" Style="{StaticResource Caption}"/><TextBlock Text="120  /  4/4" FontFamily="Consolas" FontSize="16" Foreground="#93A4B3" Margin="0,1,0,0"/><TextBlock Text="표시만 · 준비 중" Style="{StaticResource Caption}"/></StackPanel>
     </Border>

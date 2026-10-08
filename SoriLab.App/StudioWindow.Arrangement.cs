@@ -20,8 +20,8 @@ public partial class StudioWindow
     private void SetEditCursor(double seconds)
     {
         if (_busy || !CommitNumbers()) return;
-        StopPlayback(true);
         _editCursor = Math.Clamp(seconds, 0, AudioMixer.MaximumDurationSeconds);
+        StopPlayback(true);
         RefreshCursorControls();
     }
 
@@ -38,6 +38,7 @@ public partial class StudioWindow
     private bool CommitCursor()
     {
         if (_busy) return false;
+        if (CursorInput.Text == FormatSeconds(_editCursor)) return true;
         if (!ParseNumber(CursorInput.Text, out double seconds) || seconds < 0 || seconds > AudioMixer.MaximumDurationSeconds)
         { RefreshCursorControls(); Status("편집 커서는 0~120초 사이로 지정하세요.", true); return false; }
         if (seconds != _editCursor) SetEditCursor(seconds);

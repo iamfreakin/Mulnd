@@ -24,12 +24,13 @@ public partial class StudioWindow : Window
     private bool _playing, _ready, _opening;
     private string? _previewPath;
     private double _previewLength;
+    private double _previewTimelineStart;
     private int _playRequest;
     private readonly HashSet<string> _protectedSources = new(StringComparer.OrdinalIgnoreCase);
     private string? _coalesceKind;
     private DateTime _lastEdit;
     private CancellationTokenSource? _peakCancellation;
-    private readonly MediaPlayer _player = new() { Volume = 1 };
+    private MediaPlayer _player = new() { Volume = 1 };
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromMilliseconds(35) };
     private readonly DispatcherTimer _peakDelay = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private AudioTrack? Selected => _state.Tracks.FirstOrDefault(t => t.Id == _selectedId);
@@ -53,19 +54,7 @@ public partial class StudioWindow : Window
         _clock.Tick += (_, _) => UpdatePlayhead();
         _clock.Start();
         _peakDelay.Tick += async (_, _) => { _peakDelay.Stop(); await UpdatePeakAsync(); };
-        _player.MediaOpened += (_, _) =>
-        {
-            if (!_opening || _closing) return;
-            _opening = false; _ready = true; _playing = true;
-            _player.Play(); PlayButton.Content = "Ⅱ 일시정지";
-            Status("미리 듣는 중입니다. 편집을 바꾸면 재생이 멈춥니다.");
-        };
-        _player.MediaEnded += (_, _) =>
-        {
-            if (_playing && LoopCheck.IsChecked == true) { _player.Position = TimeSpan.Zero; _player.Play(); }
-            else StopPlayback(false);
-        };
-        _player.MediaFailed += (_, e) => { StopPlayback(true); Status("재생하지 못했습니다. " + e.ErrorException.Message, true); };
+        AttachPlaybackEvents(_player);
         PreviewKeyDown += OnShortcut;
         Closing += OnClosing;
         Closed += (_, _) => { _closing = true; _clock.Stop(); _peakDelay.Stop(); _peakCancellation?.Cancel(); StopPlayback(true); };
@@ -162,6 +151,7 @@ public partial class StudioWindow : Window
         ExportButton.IsEnabled = _state.Tracks.Length > 0;
         PlayButton.IsEnabled = _state.Tracks.Length > 0 && !_busy;
         RefreshCursorControls();
+        DisplayPlaybackPosition(_ready ? _previewTimelineStart + Math.Clamp(_player.Position.TotalSeconds, 0, _previewLength) : _editCursor);
         _syncing = false;
         RefreshWorkspaceShell();
     }
@@ -309,8 +299,8 @@ public partial class StudioWindow : Window
     private async void OnPlay(object sender, RoutedEventArgs e) => await PlayAsync();
     private async Task PlayAsync()
     {
-        if (_busy || _opening || !CommitNumbers()) return;
-        if (_playing) { _player.Pause(); _playing = false; PlayButton.Content = "▶ 이어 듣기"; return; }
+        if (_busy || _opening || !CommitNumbers() || !CommitCursor()) return;
+        if (_playing) { _player.Pause(); UpdatePlayhead(); _playing = false; PlayButton.Content = "▶ 이어 듣기"; return; }
         if (_ready) { _player.Play(); _playing = true; PlayButton.Content = "Ⅱ 일시정지"; return; }
         SetBusy(true); _peakCancellation?.Cancel(); StopPlayback(true);
         int request = ++_playRequest;
@@ -320,38 +310,51 @@ public partial class StudioWindow : Window
             var snapshot = _state;
             Guid? selected = SelectedOnlyCheck.IsChecked == true ? _selectedId : null;
             bool bypass = BypassCheck.IsChecked == true;
-            var rendered = await Task.Run(() => { var audio = RenderSnapshot(snapshot, selected, bypass); WavCodec.WritePcm16(candidate, audio); return audio; });
+            double cursor = _editCursor;
+            double? selectedOffset = selected.HasValue ? snapshot.Tracks.First(t => t.Id == selected).OffsetSeconds : null;
+            var prepared = await Task.Run(() =>
+            {
+                var audio = RenderSnapshot(snapshot, selected, bypass);
+                var preview = PlaybackPreview.FromCursor(audio, cursor, selectedOffset);
+                WavCodec.WritePcm16(candidate, preview.Audio);
+                return preview;
+            });
             if (request != _playRequest || _closing) { TryDelete(candidate); return; }
-            _previewPath = candidate; _previewLength = rendered.DurationSeconds; _opening = true;
+            ReplacePlaybackPlayer();
+            _previewPath = candidate; _previewLength = prepared.Audio.DurationSeconds;
+            _previewTimelineStart = prepared.TimelineStartSeconds;
+            _editCursor = _previewTimelineStart;
+            RefreshCursorControls(); DisplayPlaybackPosition(_editCursor);
+            _opening = true;
             _player.Open(new Uri(candidate)); Status("미리 듣기를 준비하고 있습니다…");
         }
         catch (Exception ex) when (IsExpected(ex)) { TryDelete(candidate); StopPlayback(true); Status("재생을 준비하지 못했습니다. " + ex.Message, true); }
         finally { SetBusy(false); }
     }
-    private void OnStop(object sender, RoutedEventArgs e) { StopPlayback(false); Status("재생을 정지했습니다."); }
+    private void OnStop(object sender, RoutedEventArgs e) { StopPlayback(false); Status($"정지했습니다. 시작 커서 {FormatSeconds(_editCursor)}초로 돌아왔습니다."); }
     private void OnListeningChanged(object sender, RoutedEventArgs e) { if (!_syncing) StopPlayback(true); }
     private void StopPlayback(bool invalidate)
     {
         _playRequest++;
+        invalidate |= _opening;
         _player.Stop(); _playing = false; _opening = false;
-        if (invalidate) { _player.Close(); _ready = false; if (_previewPath is not null) { TryDelete(_previewPath); _previewPath = null; } }
+        if (invalidate)
+        {
+            // Close는 재생기 음량도 초기화하므로 다음 미리 듣기에 같은 설정을 유지합니다.
+            double volume = _player.Volume;
+            _player.Close(); _player.Volume = volume;
+            _ready = false;
+            if (_previewPath is not null) { TryDelete(_previewPath); _previewPath = null; }
+        }
         if (PlayButton is null) return;
-        PlayButton.Content = SelectedOnlyCheck.IsChecked == true ? "▶ 선택 재생" : "▶ 전체 재생";
-        PositionText.Text = "00:00.000"; Timeline.PlayheadSeconds = 0;
-        if (Selected is { } selected) SourceWaveform.PlayheadSeconds = selected.Edit.StartFrame / (double)selected.Source.SampleRate;
+        PlayButton.Content = SelectedOnlyCheck.IsChecked == true ? "▶ 선택 재생" : "▶ 커서 재생";
+        DisplayPlaybackPosition(_editCursor);
     }
     private void UpdatePlayhead()
     {
         if (!_ready || !_playing) return;
         double seconds = Math.Clamp(_player.Position.TotalSeconds, 0, _previewLength);
-        PositionText.Text = TimeSpan.FromSeconds(seconds).ToString(@"mm\:ss\.fff");
-        Timeline.PlayheadSeconds = seconds + (SelectedOnlyCheck.IsChecked == true ? Selected?.OffsetSeconds ?? 0 : 0);
-        if (Selected is { } selected)
-        {
-            double relative = SelectedOnlyCheck.IsChecked == true ? seconds : seconds - selected.OffsetSeconds;
-            double frame = selected.Reverse ? selected.Edit.EndFrame - 1 - relative * selected.Source.SampleRate * selected.PlaybackRate : selected.Edit.StartFrame + relative * selected.Source.SampleRate * selected.PlaybackRate;
-            SourceWaveform.PlayheadSeconds = Math.Clamp(frame, selected.Edit.StartFrame, selected.Edit.EndFrame) / selected.Source.SampleRate;
-        }
+        DisplayPlaybackPosition(_previewTimelineStart + seconds);
     }
 
     private async void OnExport(object sender, RoutedEventArgs e)
@@ -427,6 +430,7 @@ public partial class StudioWindow : Window
         if (e.Key == Key.F5) { BrowserToggle.IsChecked = BrowserToggle.IsChecked != true; OnToggleBrowser(this, new RoutedEventArgs()); e.Handled = true; return; }
         if (ctrl && e.Key == Key.S) { OnSaveProject(this, new RoutedEventArgs()); e.Handled = true; return; }
         if (e.OriginalSource is TextBox) return;
+        if (e.Key == Key.Home && Keyboard.Modifiers == ModifierKeys.None) { OnGoToStart(this, new RoutedEventArgs()); e.Handled = true; return; }
         if (ctrl && e.Key == Key.Z) { MoveHistory(-1); e.Handled = true; }
         else if (ctrl && e.Key == Key.Y) { MoveHistory(1); e.Handled = true; }
         else if (ctrl && e.Key == Key.D) { OnDuplicate(this, new RoutedEventArgs()); e.Handled = true; }
@@ -552,9 +556,10 @@ public partial class StudioWindow : Window
         await OpenProjectAsync(_projectPath);
         if (IsDirty || !beforeSave.Samples.SequenceEqual(RenderSnapshot(_state, null, false).Samples)) throw new InvalidOperationException("프로젝트 재열기 소리 검증 실패");
         await RunWorkspaceChecksAsync(outputBase);
+        await RunCursorPlaybackChecksAsync(outputBase);
         if (!await SaveProjectAsync(false)) throw new InvalidOperationException("검수용 프로젝트 최종 저장 실패");
         WriteAudioAtomic(outputBase + ".wav", RenderSnapshot(_state, null, false));
         await UpdatePeakAsync();
-        Status("조합·트랙 편집·실행 취소·내보내기·재생·프로젝트 저장 검증을 통과했습니다.");
+        Status("조합·트랙 편집·실행 취소·내보내기·커서 재생·프로젝트 저장 검증을 통과했습니다.");
     }
 }
