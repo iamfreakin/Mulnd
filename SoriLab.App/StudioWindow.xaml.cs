@@ -34,11 +34,12 @@ public partial class StudioWindow : Window
     private readonly DispatcherTimer _peakDelay = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private AudioTrack? Selected => _state.Tracks.FirstOrDefault(t => t.Id == _selectedId);
     private bool IsDirty => _state.Id != _savedId;
-    public string SmokeTestStatus => $"트랙={_state.Tracks.Length};선택={_selectedId};프로젝트수정={IsDirty};이력={_history.Count};전체음량={_state.MasterDb}";
+    public string SmokeTestStatus => $"트랙={_state.Tracks.Select(t => t.EffectiveLaneId).Distinct().Count()};클립={_state.Tracks.Length};선택={_selectedId};프로젝트수정={IsDirty};이력={_history.Count};전체음량={_state.MasterDb}";
 
     public StudioWindow()
     {
         InitializeComponent();
+        InitializeWorkspaceShell();
         _savedId = _state.Id;
         _history.Add(_state);
         Timeline.TrackSelected += id => SelectTrack(id);
@@ -162,6 +163,7 @@ public partial class StudioWindow : Window
         PlayButton.IsEnabled = _state.Tracks.Length > 0 && !_busy;
         RefreshCursorControls();
         _syncing = false;
+        RefreshWorkspaceShell();
     }
 
     private double GetAudibleDuration()
@@ -413,11 +415,16 @@ public partial class StudioWindow : Window
         Timeline.IsEnabled = SourceWaveform.IsEnabled = MasterSlider.IsEnabled = !value;
         PlayButton.IsEnabled = !value && _state.Tracks.Length > 0;
         SelectedOnlyCheck.IsEnabled = BypassCheck.IsEnabled = !value;
+        MainMenu.IsEnabled = MixerChannels.IsEnabled = SourcePoolList.IsEnabled = !value;
         RefreshCursorControls();
+        RefreshWorkspaceShell();
     }
     private void OnShortcut(object sender, KeyEventArgs e)
     {
         bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        if (e.Key == Key.F2) { EditorToggle.IsChecked = EditorToggle.IsChecked != true; OnToggleEditor(this, new RoutedEventArgs()); e.Handled = true; return; }
+        if (e.Key == Key.F3) { MixerToggle.IsChecked = MixerToggle.IsChecked != true; OnToggleMixer(this, new RoutedEventArgs()); e.Handled = true; return; }
+        if (e.Key == Key.F5) { BrowserToggle.IsChecked = BrowserToggle.IsChecked != true; OnToggleBrowser(this, new RoutedEventArgs()); e.Handled = true; return; }
         if (ctrl && e.Key == Key.S) { OnSaveProject(this, new RoutedEventArgs()); e.Handled = true; return; }
         if (e.OriginalSource is TextBox) return;
         if (ctrl && e.Key == Key.Z) { MoveHistory(-1); e.Handled = true; }
@@ -533,15 +540,20 @@ public partial class StudioWindow : Window
         if (_state.Tracks.Length != 3) throw new InvalidOperationException("생성한 소리 트랙 추가 실패");
         await RunRegressionChecksAsync(outputBase);
         await RunArrangementChecksAsync(outputBase);
+        SetEditCursor(Selected!.OffsetSeconds + AudioMixer.GetDurationSeconds(Selected) * .5);
         _projectPath = outputBase + ".sorilab";
         var beforeSave = RenderSnapshot(_state, null, false);
         if (!await SaveProjectAsync(false) || IsDirty) throw new InvalidOperationException("프로젝트 저장 상태 검증 실패");
+        if (!SplitButton.IsEnabled) throw new InvalidOperationException("저장 후 분할 버튼 활성 복원 실패");
         UpdateSelected(t => t with { OffsetSeconds = t.OffsetSeconds + .1 }, "saved-change");
         if (!IsDirty) throw new InvalidOperationException("저장 후 변경 표시 실패");
         MoveHistory(-1);
         if (IsDirty) throw new InvalidOperationException("저장 지점 실행 취소 실패");
         await OpenProjectAsync(_projectPath);
         if (IsDirty || !beforeSave.Samples.SequenceEqual(RenderSnapshot(_state, null, false).Samples)) throw new InvalidOperationException("프로젝트 재열기 소리 검증 실패");
+        await RunWorkspaceChecksAsync(outputBase);
+        if (!await SaveProjectAsync(false)) throw new InvalidOperationException("검수용 프로젝트 최종 저장 실패");
+        WriteAudioAtomic(outputBase + ".wav", RenderSnapshot(_state, null, false));
         await UpdatePeakAsync();
         Status("조합·트랙 편집·실행 취소·내보내기·재생·프로젝트 저장 검증을 통과했습니다.");
     }

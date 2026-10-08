@@ -23,7 +23,7 @@ public static class Program
                 window.Left = -20000; window.Top = -20000;
                 window.Loaded += (_, _) => window.Dispatcher.BeginInvoke(new Action(window.Close));
             }
-            else if (args.Length >= 3 && args[0] == "--smoke-test")
+            else if (args.Length >= 3 && args[0] is "--smoke-test" or "--preview-project")
             {
                 window.ShowInTaskbar = false;
                 window.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -33,8 +33,12 @@ public static class Program
                 {
                     try
                     {
-                        await window.LoadFileAsync(args[1]);
-                        await window.RunInteractionChecksAsync(args[2]);
+                        if (args[0] == "--smoke-test")
+                        {
+                            await window.LoadFileAsync(args[1]);
+                            await window.RunInteractionChecksAsync(args[2]);
+                        }
+                        else await window.OpenDocumentAsync(args[1]);
                         if (args.Length >= 4 && args[3] == "--small") { window.Width = 1180; window.Height = 800; }
                         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                         window.UpdateLayout();

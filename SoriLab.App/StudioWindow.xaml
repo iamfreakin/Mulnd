@@ -2,61 +2,340 @@
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:local="clr-namespace:SoriLab.App"
- Title="소리공방 · 효과음 작업실" Width="1420" Height="940" MinWidth="1180" MinHeight="800"
- Background="#11141C" Foreground="#F1F3F8" FontFamily="Malgun Gothic" FontSize="12"
- WindowStartupLocation="CenterScreen" AllowDrop="True" Drop="OnFileDrop">
+ Title="소리공방 · 효과음 작업실" Width="1500" Height="960" MinWidth="1180" MinHeight="800"
+ Background="#20252B" Foreground="#D7DEE7" FontFamily="Malgun Gothic" FontSize="11"
+ WindowStartupLocation="CenterScreen" AllowDrop="True" Drop="OnFileDrop" UseLayoutRounding="True">
  <Window.Resources>
-  <Style TargetType="Button"><Setter Property="Background" Value="#293044"/><Setter Property="Foreground" Value="#EAEFF8"/><Setter Property="Padding" Value="13,9"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value=".35"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value=".8"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
-  <Style TargetType="TextBox"><Setter Property="Background" Value="#111722"/><Setter Property="Foreground" Value="#EAF0FA"/><Setter Property="BorderBrush" Value="#39465D"/><Setter Property="Padding" Value="8,6"/><Setter Property="CaretBrush" Value="#BBA8FB"/></Style>
-  <Style TargetType="TextBlock" x:Key="Caption"><Setter Property="Foreground" Value="#93A1B9"/><Setter Property="FontSize" Value="11"/></Style>
-  <Style TargetType="Slider"><Setter Property="Margin" Value="0,6,0,0"/></Style>
-  <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#CAD4E7"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  <SolidColorBrush x:Key="AccentBrush" Color="#4E91BD"/>
+  <SolidColorBrush x:Key="TextBrush" Color="#D7DEE7"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#8D9CAA"/>
+  <SolidColorBrush x:Key="PanelBrush" Color="#252D35"/>
+  <SolidColorBrush x:Key="BorderBrush" Color="#3C4652"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#303740"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#1C2229"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#D7DEE7"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#232A32"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#D7DEE7"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#2B323B"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#D7DEE7"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#416781"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#416781"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#F0F6FC"/>
+  <Style TargetType="Button">
+   <Setter Property="Background" Value="#343D47"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+   <Setter Property="BorderBrush" Value="#46515D"/><Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="Padding" Value="9,5"/><Setter Property="MinHeight" Value="25"/><Setter Property="FontSize" Value="11"/><Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border x:Name="ButtonSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="2">
+     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonSurface" Property="Background" Value="#465361"/></Trigger>
+     <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonSurface" Property="Background" Value="#202832"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonSurface" Property="BorderBrush" Value="#7BAED0"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ButtonSurface" Property="Opacity" Value=".42"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+   <Setter Property="Background" Value="#3C6D8D"/><Setter Property="BorderBrush" Value="#568CAE"/><Setter Property="Foreground" Value="#F0F7FF"/>
+  </Style>
+  <Style TargetType="TextBox">
+   <Setter Property="Background" Value="#1C232B"/><Setter Property="Foreground" Value="#DCE7F0"/><Setter Property="BorderBrush" Value="#46515D"/>
+   <Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="6,4"/><Setter Property="CaretBrush" Value="#93CCEF"/>
+   <Setter Property="SelectionBrush" Value="#416781"/><Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style TargetType="CheckBox"><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="FontSize" Value="11"/></Style>
+  <Style x:Key="ToggleChip" TargetType="CheckBox">
+   <Setter Property="Foreground" Value="#B8C5D1"/><Setter Property="Padding" Value="8,5"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FontSize" Value="11"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+    <Border x:Name="ToggleSurface" Background="#2C3540" BorderBrush="#414E5C" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsChecked" Value="True"><Setter TargetName="ToggleSurface" Property="Background" Value="#355D79"/><Setter TargetName="ToggleSurface" Property="BorderBrush" Value="#619BC1"/><Setter Property="Foreground" Value="#E7F5FF"/></Trigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ToggleSurface" Property="BorderBrush" Value="#7193AF"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ToggleSurface" Property="BorderBrush" Value="#97C4E1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ToggleSurface" Property="Opacity" Value=".4"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="Slider"><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/><Setter Property="Margin" Value="0,4,0,0"/><Setter Property="Height" Value="20"/></Style>
+  <Style x:Key="Caption" TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource MutedBrush}"/><Setter Property="FontSize" Value="10"/></Style>
+  <Style x:Key="SectionLabel" TargetType="TextBlock"><Setter Property="Foreground" Value="#B9C6D2"/><Setter Property="FontSize" Value="10"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style TargetType="Menu"><Setter Property="Background" Value="#292F37"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="Padding" Value="5,0"/></Style>
+  <Style TargetType="MenuItem"><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="Padding" Value="10,4"/><Setter Property="FontSize" Value="11"/></Style>
+  <Style TargetType="Separator"><Setter Property="Background" Value="#414B56"/><Setter Property="Margin" Value="3,4"/></Style>
+  <Style TargetType="ListBox"><Setter Property="Background" Value="#202831"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="BorderThickness" Value="0"/><Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/></Style>
+  <Style TargetType="ListBoxItem">
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="8,8"/><Setter Property="Margin" Value="0,0,0,1"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem">
+    <Border x:Name="ItemSurface" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#303F4D"/></Trigger>
+     <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#35576F"/><Setter TargetName="ItemSurface" Property="BorderBrush" Value="#4E7894"/></Trigger>
+     <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ItemSurface" Property="BorderBrush" Value="#79ABC9"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="TabControl">
+   <Setter Property="Background" Value="#232B34"/><Setter Property="BorderThickness" Value="0"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl">
+    <Grid><Grid.RowDefinitions><RowDefinition Height="29"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <TabPanel IsItemsHost="True" Background="#20272F"/>
+     <Border Grid.Row="1" Background="{TemplateBinding Background}"><ContentPresenter ContentSource="SelectedContent"/></Border>
+    </Grid>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="TabItem">
+   <Setter Property="Foreground" Value="#9DADB9"/><Setter Property="Padding" Value="11,6"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem">
+    <Border x:Name="TabSurface" Background="#20272F" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}"><ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsSelected" Value="True"><Setter TargetName="TabSurface" Property="Background" Value="#293641"/><Setter TargetName="TabSurface" Property="BorderBrush" Value="#6CA9CE"/><Setter Property="Foreground" Value="#DEEFFA"/></Trigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabSurface" Property="Background" Value="#33414E"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
  </Window.Resources>
- <Grid Margin="24,20,24,16">
-  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-  <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-   <StackPanel Orientation="Horizontal"><Border Background="#8068DB" CornerRadius="9" Width="38" Height="38" Margin="0,0,12,0"><TextBlock Text="≋" FontSize="29" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border><StackPanel><TextBlock Text="소리공방" FontSize="22" FontWeight="Bold"/><TextBlock x:Name="ProjectName" Text="새 프로젝트" Style="{StaticResource Caption}"/></StackPanel></StackPanel>
-   <StackPanel Grid.Column="1" x:Name="FileCommands" Orientation="Horizontal" VerticalAlignment="Center">
-    <Button Content="새 작업" Click="OnNew" Margin="0,0,6,0"/><Button Content="프로젝트 열기" Click="OnOpenProject" Margin="0,0,6,0"/><Button Content="저장" Click="OnSaveProject" Margin="0,0,6,0" ToolTip="Ctrl+S · 원본과 편집 설정을 함께 저장"/><Button Content="다른 이름 저장" Click="OnSaveProjectAs" Margin="0,0,12,0"/><Button x:Name="ExportButton" Content="WAV 내보내기  ↗" Background="#8C75E8" Click="OnExport"/>
-   </StackPanel>
-  </Grid>
-  <Grid Grid.Row="1" Margin="0,22,0,14"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-   <StackPanel><TextBlock Text="소리를 겹치고, 나만의 효과음으로." FontSize="23" FontWeight="Bold"/><TextBlock Text="여러 트랙에 클립을 배치하세요. 클릭으로 분할 위치 지정 · 드래그로 이동" Foreground="#93A1B9" Margin="0,6,0,0"/></StackPanel>
-   <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" x:Name="AddCommands"><Button Content="＋ 새 트랙" Click="OnAddFiles" Background="#2C3E42" Foreground="#B8F1E4" Margin="0,0,8,0"/><Button x:Name="AddToTrackButton" Content="클립 추가" Click="OnAddToTrack" Margin="0,0,8,0" ToolTip="선택한 트랙의 편집 커서 위치에 WAV 추가"/><Button Content="✦ 소리 생성" Click="OnGenerate" Background="#342D49" Foreground="#D5C2FF"/></StackPanel>
-  </Grid>
-  <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition Width="282"/></Grid.ColumnDefinitions>
-   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="180"/><RowDefinition Height="Auto"/><RowDefinition Height="170"/></Grid.RowDefinitions>
-    <Border Background="#1C2332" CornerRadius="10,10,0,0" Padding="14,10"><StackPanel><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="TrackSummary" Text="타임라인 · 소리를 추가하세요" FontWeight="SemiBold" VerticalAlignment="Center"/><StackPanel Grid.Column="1" x:Name="TrackCommands" Orientation="Horizontal"><CheckBox x:Name="MuteCheck" Content="트랙 음소거" Checked="OnTrackSwitch" Unchecked="OnTrackSwitch" Margin="0,0,13,0"/><CheckBox x:Name="SoloCheck" Content="단독 듣기" Checked="OnTrackSwitch" Unchecked="OnTrackSwitch" Margin="0,0,13,0"/><Button Content="클립 복제" Click="OnDuplicate" Padding="9,5" Margin="0,0,6,0"/><Button Content="클립 제거" Click="OnRemove" Padding="9,5"/></StackPanel></Grid>
-     <Grid x:Name="ArrangementCommands" Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <StackPanel Orientation="Horizontal"><TextBlock Text="편집 커서" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,7,0"/><TextBox x:Name="CursorInput" Text="0" Width="76" Padding="6,4" LostKeyboardFocus="OnCursorCommitted" KeyDown="OnCursorKeyDown"/><TextBlock Text="초" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="5,0,10,0"/><Button x:Name="SplitButton" Content="분할 (S)" Click="OnSplit" Padding="10,5" ToolTip="현재 효과를 소리에 반영한 뒤 커서에서 나눕니다. 원본 파일은 보존하며 실행 취소할 수 있습니다."/></StackPanel>
-      <StackPanel Grid.Column="2" Orientation="Horizontal"><TextBlock x:Name="ZoomText" Text="100%" Foreground="#A9B5CB" VerticalAlignment="Center" Margin="0,0,8,0"/><Button Content="−" Click="OnZoomOut" Padding="10,5"/><Button Content="＋" Click="OnZoomIn" Padding="10,5" Margin="4,0,4,0"/><Button Content="전체 보기" Click="OnZoomFit" Padding="9,5"/></StackPanel>
-     </Grid>
-    </StackPanel></Border>
-    <Border Grid.Row="1" Background="#141B27" BorderBrush="#2A3447" BorderThickness="1,0,1,1" CornerRadius="0,0,10,10"><Grid><ScrollViewer x:Name="TimelineScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch"><local:TrackTimelineView x:Name="Timeline"/></ScrollViewer><TextBlock x:Name="TimelineEmpty" Text="WAV 파일을 끌어 놓거나, 소리 생성으로 시작하세요." Foreground="#95A4BD" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/></Grid></Border>
-    <Grid Grid.Row="2" Margin="1,17,1,8"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="SourceLabel" Text="선택한 클립의 원본 구간" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="드래그: 사용할 구간 선택" Style="{StaticResource Caption}"/></Grid>
-    <Border Grid.Row="3" CornerRadius="10" Background="#141B27"><local:WaveformView x:Name="SourceWaveform" Margin="4"/></Border>
+ <Grid>
+  <Grid.RowDefinitions><RowDefinition Height="26"/><RowDefinition Height="43"/><RowDefinition Height="*"/><RowDefinition x:Name="LowerPaneRow" Height="240"/><RowDefinition Height="68"/><RowDefinition Height="23"/></Grid.RowDefinitions>
+  <Grid.ColumnDefinitions><ColumnDefinition x:Name="InspectorColumn" Width="208"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="BrowserColumn" Width="238"/></Grid.ColumnDefinitions>
+
+  <!-- 메뉴와 작업 도구는 화면 위쪽에 고정합니다. -->
+  <Menu x:Name="MainMenu" Grid.ColumnSpan="3">
+   <MenuItem Header="파일">
+    <MenuItem Header="새 작업" Click="OnNew"/><MenuItem Header="프로젝트 열기…" Click="OnOpenProject"/><Separator/>
+    <MenuItem Header="저장" InputGestureText="Ctrl+S" Click="OnSaveProject"/><MenuItem Header="다른 이름으로 저장…" Click="OnSaveProjectAs"/><Separator/>
+    <MenuItem Header="WAV 가져오기…" Click="OnAddFiles"/><MenuItem Header="WAV 내보내기…" Click="OnExport"/>
+   </MenuItem>
+   <MenuItem Header="편집">
+    <MenuItem Header="실행 취소" InputGestureText="Ctrl+Z" Click="OnUndo" IsEnabled="{Binding IsEnabled, ElementName=UndoButton}"/>
+    <MenuItem Header="다시 실행" InputGestureText="Ctrl+Y" Click="OnRedo" IsEnabled="{Binding IsEnabled, ElementName=RedoButton}"/><Separator/>
+    <MenuItem Header="선택 이벤트 복제" Click="OnDuplicate"/><MenuItem Header="선택 이벤트 제거" Click="OnRemove"/>
+   </MenuItem>
+   <MenuItem Header="트랙">
+    <MenuItem Header="오디오 트랙 추가…" Click="OnAddFiles"/><MenuItem Header="선택 트랙에 클립 추가…" Click="OnAddToTrack"/><Separator/>
+    <MenuItem Header="악기 트랙 · 준비 중" IsEnabled="False"/><MenuItem Header="버스 / 폴더 트랙 · 준비 중" IsEnabled="False"/>
+   </MenuItem>
+   <MenuItem Header="이벤트">
+    <MenuItem Header="커서 위치에서 분할" InputGestureText="S" Click="OnSplit"/><MenuItem Header="원본 전체 구간 사용" Click="OnSelectAll"/><MenuItem Header="선택 이벤트 편집 초기화" Click="OnReset"/><Separator/>
+    <MenuItem Header="MIDI 음표 편집 · 준비 중" IsEnabled="False"/><MenuItem Header="타임 스트레치 · 준비 중" IsEnabled="False"/>
+   </MenuItem>
+   <MenuItem Header="오디오">
+    <MenuItem Header="새 소리 생성…" Click="OnGenerate"/><MenuItem Header="전체 조합 내보내기…" Click="OnExport"/><Separator/>
+    <MenuItem Header="플러그인 관리…" Click="OnPlaceholder" Tag="외부 오디오 플러그인 연결 기능은 준비 중입니다."/>
+    <MenuItem Header="녹음 설정…" Click="OnPlaceholder" Tag="오디오 입력과 녹음 기능은 준비 중입니다."/>
+   </MenuItem>
+   <MenuItem Header="보기">
+    <MenuItem Header="오디오 편집기" IsCheckable="True" IsChecked="{Binding IsChecked, ElementName=EditorToggle, Mode=OneWay}" Click="OnToggleEditor"/>
+    <MenuItem Header="믹서" IsCheckable="True" IsChecked="{Binding IsChecked, ElementName=MixerToggle, Mode=OneWay}" Click="OnToggleMixer"/>
+    <MenuItem Header="브라우저" IsCheckable="True" IsChecked="{Binding IsChecked, ElementName=BrowserToggle, Mode=OneWay}" Click="OnToggleBrowser"/><Separator/>
+    <MenuItem Header="타임라인 전체 보기" Click="OnZoomFit"/><MenuItem Header="타임라인 확대" Click="OnZoomIn"/><MenuItem Header="타임라인 축소" Click="OnZoomOut"/>
+   </MenuItem>
+   <MenuItem Header="도움말">
+    <MenuItem Header="편집 안내" Click="OnPlaceholder" Tag="클립을 클릭해 커서를 지정하고, S로 분할합니다. 드래그로 시간과 트랙을 옮기고, 프로젝트 저장으로 작업을 보관하세요."/>
+    <MenuItem Header="준비 중인 기능" Click="OnPlaceholder" Tag="MIDI, 외부 플러그인, 녹음, 루프 검색은 화면 틀만 준비되어 있습니다."/>
+   </MenuItem>
+  </Menu>
+  <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#303740" BorderBrush="#151B21" BorderThickness="0,0,0,1">
+   <Grid Margin="9,6">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <StackPanel x:Name="FileCommands" Orientation="Horizontal">
+     <Button Content="새 작업" Click="OnNew" Margin="0,0,4,0"/><Button Content="열기" Click="OnOpenProject" Margin="0,0,4,0"/>
+     <Button Content="저장" Click="OnSaveProject" Margin="0,0,4,0" ToolTip="Ctrl+S · 원본과 편집 설정을 함께 저장"/>
+     <Button Content="다른 이름" Click="OnSaveProjectAs" Margin="0,0,8,0"/>
+     <Button x:Name="ExportButton" Content="WAV 내보내기" Click="OnExport" Style="{StaticResource AccentButton}"/>
+    </StackPanel>
+    <StackPanel Grid.Column="1" x:Name="AddCommands" Orientation="Horizontal" Margin="12,0,0,0">
+     <Border Width="1" Background="#505C69" Margin="0,2,12,2"/>
+     <Button Content="＋ 오디오" Click="OnAddFiles" Margin="0,0,4,0"/>
+     <Button x:Name="AddToTrackButton" Content="클립 추가" Click="OnAddToTrack" Margin="0,0,4,0" ToolTip="선택한 트랙의 편집 커서 위치에 WAV 추가"/>
+     <Button Content="소리 생성" Click="OnGenerate"/>
+    </StackPanel>
+    <TextBlock Grid.Column="2" x:Name="ProjectName" Text="새 프로젝트" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#C5D1DB" TextTrimming="CharacterEllipsis" Margin="15,0"/>
+    <TextBlock Grid.Column="3" Text="소리공방" Foreground="#7FA9C4" FontWeight="SemiBold" VerticalAlignment="Center" Margin="5,0,7,0"/>
    </Grid>
-   <Border Grid.Column="2" Background="#1A2130" CornerRadius="10" Padding="17,15"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" Padding="0,0,7,0"><StackPanel x:Name="Inspector">
-    <TextBlock x:Name="SelectedName" Text="클립을 선택하세요" FontSize="16" FontWeight="Bold" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="SelectedInfo" Text="원본을 보존하며 편집합니다." Style="{StaticResource Caption}" Margin="0,5,0,12"/>
-    <TextBlock Text="배치 위치 · 초" Style="{StaticResource Caption}"/><TextBox x:Name="OffsetInput" Text="0.000" Margin="0,5,0,10" LostKeyboardFocus="OnNumbersCommitted" KeyDown="OnNumberKeyDown"/>
-    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="원본 시작 · 초" Style="{StaticResource Caption}"/><TextBox x:Name="StartInput" Margin="0,5,0,0" LostKeyboardFocus="OnNumbersCommitted" KeyDown="OnNumberKeyDown"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="원본 끝 · 초" Style="{StaticResource Caption}"/><TextBox x:Name="EndInput" Margin="0,5,0,0" LostKeyboardFocus="OnNumbersCommitted" KeyDown="OnNumberKeyDown"/></StackPanel></Grid>
-    <Button Content="원본 전체 구간" Click="OnSelectAll" Margin="0,8,0,14" Padding="10,7"/>
-    <Grid><TextBlock Text="클립 음량"/><TextBlock x:Name="GainValue" HorizontalAlignment="Right" Foreground="#BCA9FC"/></Grid><Slider x:Name="GainSlider" Minimum="-24" Maximum="12" TickFrequency=".5" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
-    <Grid Margin="0,12,0,0"><TextBlock Text="페이드 인"/><TextBlock x:Name="FadeInValue" HorizontalAlignment="Right" Foreground="#BCA9FC"/></Grid><Slider x:Name="FadeInSlider" Minimum="0" Maximum="1000" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
-    <Grid Margin="0,12,0,0"><TextBlock Text="페이드 아웃"/><TextBlock x:Name="FadeOutValue" HorizontalAlignment="Right" Foreground="#BCA9FC"/></Grid><Slider x:Name="FadeOutSlider" Minimum="0" Maximum="1000" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
-    <Border Height="1" Background="#344057" Margin="0,16,0,13"/>
-    <Grid><TextBlock Text="재생 속도"/><TextBlock x:Name="RateValue" HorizontalAlignment="Right" Foreground="#BCA9FC"/></Grid><Slider x:Name="RateSlider" Minimum=".25" Maximum="4" Value="1" TickFrequency=".05" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/><TextBlock x:Name="PitchInfo" Text="속도와 음높이가 함께 바뀝니다." Style="{StaticResource Caption}" Margin="0,3,0,9"/>
-    <CheckBox x:Name="ReverseCheck" Content="역재생" Checked="OnTrackSwitch" Unchecked="OnTrackSwitch"/>
-    <Grid Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="7"/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="UndoButton" Content="↶ 실행 취소" Click="OnUndo" Padding="8,8"/><Button x:Name="RedoButton" Grid.Column="2" Content="↷ 다시 실행" Click="OnRedo" Padding="8,8"/></Grid>
-    <Button Content="선택 클립 편집 초기화" Click="OnReset" Background="Transparent" Foreground="#A7B5CE" Padding="6,9" Margin="0,3,0,0"/>
-   </StackPanel></ScrollViewer></Border>
+  </Border>
+  <!-- 선택한 이벤트의 속성은 왼쪽에 모읍니다. -->
+  <Border x:Name="InspectorPane" Grid.Row="2" Grid.RowSpan="2" Background="{StaticResource PanelBrush}" BorderBrush="#121921" BorderThickness="0,0,1,0">
+   <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border Background="#303A44" BorderBrush="#3C4652" BorderThickness="0,0,0,1" Padding="10,5"><TextBlock Text="인스펙터" FontWeight="SemiBold" Foreground="#BCCCD9"/></Border>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="10,10,10,8">
+     <StackPanel x:Name="Inspector">
+      <TextBlock x:Name="SelectedName" Text="이벤트를 선택하세요" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+      <TextBlock x:Name="SelectedInfo" Text="원본을 보존하며 편집합니다." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,12"/>
+      <TextBlock Text="이벤트" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="96"/></Grid.ColumnDefinitions>
+       <TextBlock Text="배치 위치 · 초" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+       <TextBox Grid.Column="1" x:Name="OffsetInput" Text="0" LostKeyboardFocus="OnNumbersCommitted" KeyDown="OnNumberKeyDown" FontFamily="Consolas"/>
+      </Grid>
+      <Grid Margin="0,9,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="8"/><ColumnDefinition/></Grid.ColumnDefinitions>
+       <StackPanel><TextBlock Text="원본 시작 · 초" Style="{StaticResource Caption}"/><TextBox x:Name="StartInput" Margin="0,4,0,0" LostKeyboardFocus="OnNumbersCommitted" KeyDown="OnNumberKeyDown" FontFamily="Consolas"/></StackPanel>
+       <StackPanel Grid.Column="2"><TextBlock Text="원본 끝 · 초" Style="{StaticResource Caption}"/><TextBox x:Name="EndInput" Margin="0,4,0,0" LostKeyboardFocus="OnNumbersCommitted" KeyDown="OnNumberKeyDown" FontFamily="Consolas"/></StackPanel>
+      </Grid>
+      <Button Content="원본 전체 구간" Click="OnSelectAll" Margin="0,7,0,13" Padding="7,4"/>
+      <Grid><TextBlock Text="클립 음량" FontSize="10"/><TextBlock x:Name="GainValue" HorizontalAlignment="Right" Foreground="#8DC0DF" FontSize="10"/></Grid>
+      <Slider x:Name="GainSlider" Minimum="-24" Maximum="12" TickFrequency=".5" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
+      <Grid Margin="0,10,0,0"><TextBlock Text="페이드 인" FontSize="10"/><TextBlock x:Name="FadeInValue" HorizontalAlignment="Right" Foreground="#8DC0DF" FontSize="10"/></Grid>
+      <Slider x:Name="FadeInSlider" Minimum="0" Maximum="1000" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
+      <Grid Margin="0,10,0,0"><TextBlock Text="페이드 아웃" FontSize="10"/><TextBlock x:Name="FadeOutValue" HorizontalAlignment="Right" Foreground="#8DC0DF" FontSize="10"/></Grid>
+      <Slider x:Name="FadeOutSlider" Minimum="0" Maximum="1000" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
+      <Border Height="1" Background="#414C58" Margin="0,13,0,12"/>
+      <Grid><TextBlock Text="재생 속도" FontSize="10"/><TextBlock x:Name="RateValue" HorizontalAlignment="Right" Foreground="#8DC0DF" FontSize="10"/></Grid>
+      <Slider x:Name="RateSlider" Minimum=".25" Maximum="4" Value="1" TickFrequency=".05" IsSnapToTickEnabled="True" ValueChanged="OnSliderChanged"/>
+      <TextBlock x:Name="PitchInfo" Text="속도와 음높이가 함께 바뀝니다." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,3,0,9"/>
+      <CheckBox x:Name="ReverseCheck" Content="역재생" Checked="OnTrackSwitch" Unchecked="OnTrackSwitch"/>
+      <Border Height="1" Background="#414C58" Margin="0,13,0,10"/>
+      <TextBlock Text="인서트 / 센드" Style="{StaticResource SectionLabel}" Margin="0,0,0,7"/>
+      <Button Content="＋ 효과 슬롯 · 준비 중" IsEnabled="False" Padding="7,5"/>
+      <TextBlock Text="플러그인과 라우팅은 준비 중입니다." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="1,6,0,13"/>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="5"/><ColumnDefinition/></Grid.ColumnDefinitions>
+       <Button x:Name="UndoButton" Content="↶ 실행 취소" Click="OnUndo" Padding="5,5" ToolTip="Ctrl+Z"/>
+       <Button x:Name="RedoButton" Grid.Column="2" Content="↷ 다시 실행" Click="OnRedo" Padding="5,5" ToolTip="Ctrl+Y"/>
+      </Grid>
+      <Button Content="선택 이벤트 초기화" Click="OnReset" Margin="0,6,0,0" Padding="5,5" Background="#28313A"/>
+     </StackPanel>
+    </ScrollViewer>
+   </Grid>
+  </Border>
+
+  <!-- 중앙 배치 화면은 트랙과 이벤트를 위한 작업 공간입니다. -->
+  <Grid Grid.Row="2" Grid.Column="1" Background="#1B232C">
+   <Grid.RowDefinitions><RowDefinition Height="33"/><RowDefinition Height="34"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <Border Background="#2C3641" BorderBrush="#151D25" BorderThickness="0,0,0,1">
+    <Grid Margin="10,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <TextBlock x:Name="TrackSummary" Text="배치 · 소리를 추가하세요" VerticalAlignment="Center" FontSize="10" Foreground="#AEC0CE" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
+     <StackPanel Grid.Column="1" x:Name="TrackCommands" Orientation="Horizontal">
+      <CheckBox x:Name="MuteCheck" Content="음소거" Style="{StaticResource ToggleChip}" Checked="OnTrackSwitch" Unchecked="OnTrackSwitch" Padding="7,3" Margin="0,0,4,0" ToolTip="선택 트랙 전체 음소거"/>
+      <CheckBox x:Name="SoloCheck" Content="단독" Style="{StaticResource ToggleChip}" Checked="OnTrackSwitch" Unchecked="OnTrackSwitch" Padding="7,3" Margin="0,0,9,0" ToolTip="선택 트랙만 단독 듣기"/>
+      <Button Content="복제" Click="OnDuplicate" Padding="8,3" Margin="0,0,4,0"/><Button Content="제거" Click="OnRemove" Padding="8,3"/>
+     </StackPanel>
+    </Grid>
+   </Border>
+   <Border Grid.Row="1" Background="#252F39" BorderBrush="#101922" BorderThickness="0,0,0,1">
+    <Grid x:Name="ArrangementCommands" Margin="8,4"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <StackPanel Orientation="Horizontal">
+      <TextBlock Text="커서" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+      <TextBox x:Name="CursorInput" Text="0" Width="78" Padding="5,2" FontFamily="Consolas" LostKeyboardFocus="OnCursorCommitted" KeyDown="OnCursorKeyDown"/>
+      <TextBlock Text="초" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="4,0,9,0"/>
+      <Button x:Name="SplitButton" Content="분할" Click="OnSplit" Padding="9,3" ToolTip="S · 현재 효과를 반영한 뒤 커서에서 분할합니다. 원본 파일은 보존됩니다."/>
+     </StackPanel>
+     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center"><Button Content="스냅 · 준비 중" IsEnabled="False" Padding="7,3" Margin="10,0,0,0"/></StackPanel>
+     <StackPanel Grid.Column="2" Orientation="Horizontal">
+      <TextBlock x:Name="ZoomText" Text="100%" Foreground="#92ACC0" VerticalAlignment="Center" Margin="0,0,7,0"/>
+      <Button Content="−" Click="OnZoomOut" Padding="8,3" ToolTip="타임라인 축소"/><Button Content="＋" Click="OnZoomIn" Padding="8,3" Margin="3,0" ToolTip="타임라인 확대"/><Button Content="전체" Click="OnZoomFit" Padding="8,3" ToolTip="전체 타임라인 보기"/>
+     </StackPanel>
+    </Grid>
+   </Border>
+   <Grid Grid.Row="2">
+    <ScrollViewer x:Name="TimelineScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch"><local:TrackTimelineView x:Name="Timeline"/></ScrollViewer>
+    <TextBlock x:Name="TimelineEmpty" Text="WAV를 끌어 놓거나 오디오 트랙을 추가하세요." Foreground="#8B9DAC" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+   </Grid>
   </Grid>
-  <Border Grid.Row="3" Background="#1C2432" CornerRadius="10" Padding="16,12" Margin="0,16,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="235"/></Grid.ColumnDefinitions>
-   <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="PlayButton" Content="▶ 전체 재생" Click="OnPlay" Background="#B8F1DD" Foreground="#163D33" Width="115"/><Button Content="■" Click="OnStop" Margin="7,0,14,0" Width="38" Padding="0"/><StackPanel><TextBlock x:Name="PositionText" Text="00:00.000" FontSize="20" FontFamily="Consolas"/><TextBlock x:Name="DurationText" Text="전체 0.000초" Style="{StaticResource Caption}"/></StackPanel></StackPanel>
-   <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"><CheckBox x:Name="LoopCheck" Content="반복 재생"/><CheckBox x:Name="SelectedOnlyCheck" Content="선택 클립만 듣기" Margin="0,7,0,0" Checked="OnListeningChanged" Unchecked="OnListeningChanged"/></StackPanel>
-   <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,25,0"><TextBlock Text="출력 최대 음량" Style="{StaticResource Caption}"/><TextBlock x:Name="PeakText" Text="—" Foreground="#B8F1DD" FontSize="19" Margin="0,3,0,0"/></StackPanel>
-   <StackPanel Grid.Column="3" VerticalAlignment="Center"><Grid><TextBlock Text="전체 음량" Style="{StaticResource Caption}"/><TextBlock x:Name="MasterValue" Text="0.0 dB" HorizontalAlignment="Right" Foreground="#BCA9FC"/></Grid><Slider x:Name="MasterSlider" Minimum="-24" Maximum="0" TickFrequency=".5" IsSnapToTickEnabled="True" ValueChanged="OnMasterChanged"/><CheckBox x:Name="BypassCheck" Content="음량·페이드 없이 비교" Checked="OnListeningChanged" Unchecked="OnListeningChanged" Margin="0,4,0,0"/></StackPanel>
-  </Grid></Border>
-  <TextBlock Grid.Row="4" x:Name="StatusText" Text="준비됨 · WAV를 추가하거나 새 소리를 생성하세요." Foreground="#A6B5CD" Margin="1,13,0,0" TextWrapping="Wrap"/>
+  <!-- 브라우저는 실제 소스와 아직 연결하지 않은 기능을 구분합니다. -->
+  <Border x:Name="BrowserPane" Grid.Row="2" Grid.RowSpan="2" Grid.Column="2" Background="#232B34" BorderBrush="#111B24" BorderThickness="1,0,0,0">
+   <Grid><Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border Background="#303A44" BorderBrush="#3C4652" BorderThickness="0,0,0,1" Padding="10,5"><TextBlock Text="브라우저" FontWeight="SemiBold" Foreground="#BCCCD9"/></Border>
+    <TabControl x:Name="BrowserTabs" Grid.Row="1">
+     <TabItem Header="소스">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+       <StackPanel Margin="8,10,8,7"><TextBlock Text="현재 프로젝트의 소리" Foreground="#B7C6D2" FontWeight="SemiBold" Margin="0,0,0,8"/><TextBox Text="소스 검색 · 준비 중" IsReadOnly="True" IsEnabled="False" Foreground="#6F8293" Padding="6,5"/></StackPanel>
+       <ListBox x:Name="SourcePoolList" Grid.Row="1" SelectionChanged="OnPoolSelectionChanged" Margin="4,0" HorizontalContentAlignment="Stretch"/>
+       <StackPanel Grid.Row="2" Margin="8,9"><TextBlock Text="소스를 선택하면 해당 이벤트로 이동합니다." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,9"/>
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="5"/><ColumnDefinition/></Grid.ColumnDefinitions><Button Content="WAV 추가" Click="OnAddFiles" Padding="6,5"/><Button Grid.Column="2" Content="소리 생성" Click="OnGenerate" Padding="6,5"/></Grid>
+       </StackPanel>
+      </Grid>
+     </TabItem>
+     <TabItem Header="효과">
+      <StackPanel Margin="12,15">
+       <TextBlock Text="오디오 효과" FontWeight="SemiBold" Foreground="#C3D2DD" Margin="0,0,0,14"/>
+       <TextBlock Text="이퀄라이저" Foreground="#8C9DAA" Margin="0,0,0,12"/><TextBlock Text="컴프레서" Foreground="#8C9DAA" Margin="0,0,0,12"/><TextBlock Text="리버브 / 딜레이" Foreground="#8C9DAA" Margin="0,0,0,12"/><TextBlock Text="외부 플러그인" Foreground="#8C9DAA" Margin="0,0,0,16"/>
+       <Border Height="1" Background="#3B4651" Margin="0,0,0,12"/>
+       <TextBlock Text="효과 브라우저는 준비 중입니다.&#x0a;현재는 인스펙터에서 음량과 페이드를 조절할 수 있습니다." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+      </StackPanel>
+     </TabItem>
+     <TabItem Header="악기">
+      <StackPanel Margin="12,15">
+       <TextBlock Text="가상 악기" FontWeight="SemiBold" Foreground="#C3D2DD" Margin="0,0,0,14"/>
+       <TextBlock Text="신시사이저" Foreground="#8C9DAA" Margin="0,0,0,12"/><TextBlock Text="샘플러" Foreground="#8C9DAA" Margin="0,0,0,12"/><TextBlock Text="드럼 머신" Foreground="#8C9DAA" Margin="0,0,0,16"/>
+       <Border Height="1" Background="#3B4651" Margin="0,0,0,12"/><TextBlock Text="가상 악기와 MIDI 연결은 준비 중입니다." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+      </StackPanel>
+     </TabItem>
+     <TabItem Header="루프">
+      <StackPanel Margin="12,15">
+       <TextBlock Text="루프 라이브러리" FontWeight="SemiBold" Foreground="#C3D2DD" Margin="0,0,0,14"/>
+       <TextBlock Text="리듬 / 퍼커션" Foreground="#8C9DAA" Margin="0,0,0,12"/><TextBlock Text="효과음 / 공간음" Foreground="#8C9DAA" Margin="0,0,0,16"/>
+       <Border Height="1" Background="#3B4651" Margin="0,0,0,12"/><TextBlock Text="루프 검색과 템포 맞추기는 준비 중입니다. WAV는 소스 탭에서 직접 추가할 수 있습니다." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+      </StackPanel>
+     </TabItem>
+    </TabControl>
+   </Grid>
+  </Border>
+  <!-- 하단의 믹서와 편집기는 같은 영역을 번갈아 사용합니다. -->
+  <Border x:Name="ConsolePane" Grid.Row="3" Grid.Column="1" Background="#202730" BorderBrush="#111A23" BorderThickness="0,1,0,0">
+   <Grid><Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border Background="#2E3843" BorderBrush="#111C25" BorderThickness="0,0,0,1"><Grid Margin="10,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="콘솔" FontWeight="SemiBold" Foreground="#C1D2DF" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="트랙 음소거·단독 듣기 / 마스터 음량" Style="{StaticResource Caption}" VerticalAlignment="Center"/></Grid></Border>
+    <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="142"/></Grid.ColumnDefinitions>
+     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalContentAlignment="Left" Background="#202831"><StackPanel x:Name="MixerChannels" Orientation="Horizontal" Margin="7,3,4,1"/></ScrollViewer>
+     <Border Grid.Column="1" Background="#2A3743" BorderBrush="#526472" BorderThickness="1,0,0,0">
+      <Grid Margin="10,7,9,6"><Grid.RowDefinitions><RowDefinition Height="20"/><RowDefinition Height="*"/><RowDefinition Height="25"/></Grid.RowDefinitions>
+       <TextBlock Text="마스터" Foreground="#CFE3F0" FontWeight="SemiBold"/>
+       <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="35"/><ColumnDefinition/></Grid.ColumnDefinitions>
+        <Slider x:Name="MasterSlider" Orientation="Vertical" Minimum="-24" Maximum="0" TickFrequency=".5" IsSnapToTickEnabled="True" ValueChanged="OnMasterChanged" Height="122" Width="30" Margin="0" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="7,0,0,0">
+         <TextBlock Text="출력 음량" Style="{StaticResource Caption}"/><TextBlock x:Name="MasterValue" Text="0.0 dB" Foreground="#B6D4E7" FontSize="13" FontFamily="Consolas" Margin="0,4,0,12"/>
+         <TextBlock Text="최대 음량" Style="{StaticResource Caption}"/><TextBlock x:Name="PeakText" Text="—" Foreground="#8CC7DE" FontSize="13" FontFamily="Consolas" Margin="0,4,0,0"/>
+        </StackPanel>
+       </Grid>
+       <CheckBox x:Name="BypassCheck" Grid.Row="2" Content="음량·페이드 제외" Checked="OnListeningChanged" Unchecked="OnListeningChanged" FontSize="10" VerticalAlignment="Center" ToolTip="미리 듣기에서 음량과 페이드만 제외합니다. 내보내기에는 편집 효과가 적용됩니다."/>
+      </Grid>
+     </Border>
+    </Grid>
+   </Grid>
+  </Border>
+  <Border x:Name="EditorPane" Grid.Row="3" Grid.Column="1" Visibility="Collapsed" Background="#202730" BorderBrush="#111A23" BorderThickness="0,1,0,0">
+   <Grid><Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border Background="#2E3843" BorderBrush="#111C25" BorderThickness="0,0,0,1">
+     <Grid Margin="10,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="SourceLabel" Text="오디오 편집기 · 선택한 클립의 원본 구간" FontWeight="SemiBold" Foreground="#C1D2DF" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
+      <TextBlock Grid.Column="1" Text="드래그: 사용할 구간 선택" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+     </Grid>
+    </Border>
+    <local:WaveformView x:Name="SourceWaveform" Grid.Row="1" Margin="3"/>
+   </Grid>
+  </Border>
+
+  <Border Grid.Row="4" Grid.ColumnSpan="3" Background="#292F37" BorderBrush="#495562" BorderThickness="0,1,0,0">
+   <Grid Margin="10,7,10,6">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="190"/><ColumnDefinition Width="194"/><ColumnDefinition Width="151"/><ColumnDefinition Width="125"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <StackPanel VerticalAlignment="Center"><TextBlock Text="오디오" Style="{StaticResource Caption}"/><TextBlock Text="48 kHz" Foreground="#B4C5D4" FontSize="13" FontFamily="Consolas" Margin="0,2,0,0"/><TextBlock Text="스테레오" Style="{StaticResource Caption}"/></StackPanel>
+    <Border Grid.Column="1" Background="#1C242D" BorderBrush="#435362" BorderThickness="1" Padding="10,3" Margin="0,0,13,0">
+     <StackPanel VerticalAlignment="Center"><TextBlock x:Name="PositionText" Text="00:00.000" FontFamily="Consolas" FontSize="23" Foreground="#CBDDEA"/><TextBlock x:Name="DurationText" Text="전체 0초" Style="{StaticResource Caption}"/></StackPanel>
+    </Border>
+    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+     <StackPanel Orientation="Horizontal">
+      <Button Content="■" Click="OnStop" Width="30" Padding="0" Margin="0,0,4,0" ToolTip="정지"/>
+      <Button x:Name="PlayButton" Content="▶ 전체 재생" Click="OnPlay" Width="108" Padding="5,6" Style="{StaticResource AccentButton}"/>
+      <Button Content="●" IsEnabled="False" Width="30" Padding="0" Margin="4,0,0,0" Foreground="#CF7B7B" FontSize="18" ToolTip="녹음 기능은 준비 중입니다."/>
+     </StackPanel>
+     <TextBlock Text="녹음 · 준비 중" Style="{StaticResource Caption}" HorizontalAlignment="Right" Margin="0,3,17,0"/>
+    </StackPanel>
+    <StackPanel Grid.Column="3" VerticalAlignment="Center"><CheckBox x:Name="LoopCheck" Content="반복 재생"/><CheckBox x:Name="SelectedOnlyCheck" Content="선택 이벤트만 듣기" Checked="OnListeningChanged" Unchecked="OnListeningChanged" Margin="0,7,0,0"/></StackPanel>
+    <Border Grid.Column="4" BorderBrush="#43505D" BorderThickness="1,0,0,0" Padding="13,0,0,0">
+     <StackPanel VerticalAlignment="Center"><TextBlock Text="템포 / 박자" Style="{StaticResource Caption}"/><TextBlock Text="120  /  4/4" FontFamily="Consolas" FontSize="16" Foreground="#93A4B3" Margin="0,1,0,0"/><TextBlock Text="표시만 · 준비 중" Style="{StaticResource Caption}"/></StackPanel>
+    </Border>
+    <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center">
+     <CheckBox x:Name="EditorToggle" Content="편집기" Style="{StaticResource ToggleChip}" IsChecked="False" Click="OnToggleEditor" Padding="10,9" Margin="0,0,4,0"/>
+     <CheckBox x:Name="MixerToggle" Content="믹서" Style="{StaticResource ToggleChip}" IsChecked="True" Click="OnToggleMixer" Padding="10,9" Margin="0,0,4,0"/>
+     <CheckBox x:Name="BrowserToggle" Content="브라우저" Style="{StaticResource ToggleChip}" IsChecked="True" Click="OnToggleBrowser" Padding="10,9"/>
+    </StackPanel>
+   </Grid>
+  </Border>
+  <Border Grid.Row="5" Grid.ColumnSpan="3" Background="#20272F" BorderBrush="#151D25" BorderThickness="0,1,0,0">
+   <Grid Margin="10,3"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBlock x:Name="StatusText" Text="준비됨 · WAV를 추가하거나 새 소리를 생성하세요." Foreground="#8FA3B5" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"/>
+    <TextBlock Grid.Column="1" Text="S 분할  ·  Space 재생  ·  Ctrl+S 저장" Foreground="#627C91" FontSize="10"/>
+   </Grid>
+  </Border>
  </Grid>
 </Window>

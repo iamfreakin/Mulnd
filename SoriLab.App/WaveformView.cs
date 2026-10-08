@@ -10,16 +10,16 @@ namespace SoriLab.App;
 /// <summary>샘플 프레임 단위로 구간을 선택하는 파형 화면입니다.</summary>
 public sealed class WaveformView : FrameworkElement
 {
-    private static readonly Brush BackgroundBrush = MakeBrush(0x0D, 0x14, 0x21);
-    private static readonly Brush TextBrush = MakeBrush(0x97, 0xA7, 0xBA);
-    private static readonly Brush QuietTextBrush = MakeBrush(0x60, 0x72, 0x89);
-    private static readonly Brush WaveBrush = MakeBrush(0x5D, 0xD9, 0xCB);
-    private static readonly Brush SelectionBrush = MakeBrush(0xA6, 0x8B, 0xFA, 42);
-    private static readonly Brush HandleBrush = MakeBrush(0xB5, 0x9B, 0xFF);
-    private static readonly Pen GridPen = MakePen(MakeBrush(0x24, 0x31, 0x45), 1);
-    private static readonly Pen MidlinePen = MakePen(MakeBrush(0x36, 0x48, 0x5E), 1);
+    private static readonly Brush BackgroundBrush = MakeBrush(0x20, 0x25, 0x2B);
+    private static readonly Brush TextBrush = MakeBrush(0xA5, 0xB0, 0xBA);
+    private static readonly Brush QuietTextBrush = MakeBrush(0x86, 0x93, 0x9F);
+    private static readonly Brush WaveBrush = MakeBrush(0x72, 0xB4, 0xB6);
+    private static readonly Brush SelectionBrush = MakeBrush(0x48, 0x9C, 0xD8, 48);
+    private static readonly Brush HandleBrush = MakeBrush(0x48, 0x9C, 0xD8);
+    private static readonly Pen GridPen = MakePen(MakeBrush(0x34, 0x3C, 0x45), 1);
+    private static readonly Pen MidlinePen = MakePen(MakeBrush(0x4A, 0x55, 0x60), 1);
     private static readonly Pen HandlePen = MakePen(HandleBrush, 1.5);
-    private static readonly Pen PlayheadPen = MakePen(MakeBrush(0xFF, 0xD0, 0x7A), 1.5);
+    private static readonly Pen PlayheadPen = MakePen(MakeBrush(0xEA, 0xEE, 0xF2), 1.5);
     private static readonly Typeface LabelTypeface = new("Malgun Gothic");
 
     private AudioClip? _clip;
@@ -100,8 +100,8 @@ public sealed class WaveformView : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        dc.DrawRoundedRectangle(BackgroundBrush, null,
-            new Rect(0, 0, ActualWidth, ActualHeight), 12, 12);
+        dc.DrawRectangle(BackgroundBrush, null,
+            new Rect(0, 0, ActualWidth, ActualHeight));
 
         if (ActualWidth < 80 || ActualHeight < 100)
             return;
@@ -150,8 +150,8 @@ public sealed class WaveformView : FrameworkElement
         dc.DrawLine(PlayheadPen, new Point(playheadX, plot.Top), new Point(playheadX, plot.Bottom));
         dc.DrawEllipse(PlayheadPen.Brush, null, new Point(playheadX, plot.Top - 3), 3, 3);
 
-        DrawText(dc, "드래그로 구간 선택 · 양끝 손잡이로 길이 조절",
-            new Point(plot.Left, ActualHeight - 23), 11, QuietTextBrush);
+        DrawText(dc, "구간 선택: 드래그  ·  길이 조절: 양끝 손잡이",
+            new Point(plot.Left, ActualHeight - 23), 10, QuietTextBrush);
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)

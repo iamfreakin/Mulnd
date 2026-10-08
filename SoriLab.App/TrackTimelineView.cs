@@ -19,22 +19,26 @@ public sealed class TrackTimelineView : FrameworkElement
     private const double RightPadding = 12;
     private const double ClipHeight = 54;
     private static readonly Typeface LabelTypeface = new("Malgun Gothic");
-    private static readonly Brush BackgroundBrush = CreateBrush(0x0D, 0x14, 0x21);
-    private static readonly Brush HeaderBrush = CreateBrush(0x16, 0x1D, 0x2B);
-    private static readonly Brush LabelBrush = CreateBrush(0x14, 0x1B, 0x29);
-    private static readonly Brush SelectedLabelBrush = CreateBrush(0x28, 0x24, 0x3C);
-    private static readonly Brush ClipBrush = CreateBrush(0x19, 0x39, 0x3C);
-    private static readonly Brush SelectedClipBrush = CreateBrush(0x30, 0x29, 0x4A);
-    private static readonly Brush InactiveClipBrush = CreateBrush(0x20, 0x27, 0x36);
-    private static readonly Brush TextBrush = CreateBrush(0xD6, 0xDE, 0xEB);
-    private static readonly Brush MutedTextBrush = CreateBrush(0x82, 0x93, 0xAB);
-    private static readonly Brush WaveBrush = CreateBrush(0x62, 0xD5, 0xC5);
-    private static readonly Brush InactiveWaveBrush = CreateBrush(0x66, 0x78, 0x8E);
-    private static readonly Pen GridPen = CreatePen(CreateBrush(0x22, 0x30, 0x43), 1);
-    private static readonly Pen ClipPen = CreatePen(CreateBrush(0x36, 0x6A, 0x67), 1);
-    private static readonly Pen SelectedPen = CreatePen(CreateBrush(0xB7, 0x9A, 0xFF), 1.5);
-    private static readonly Pen PlayheadPen = CreatePen(CreateBrush(0xFF, 0xD0, 0x7A), 1.5);
-    private static readonly Pen CursorPen = CreatePen(CreateBrush(0xCF, 0xBF, 0xFF), 1);
+    private static readonly Brush BackgroundBrush = CreateBrush(0x20, 0x25, 0x2B);
+    private static readonly Brush HeaderBrush = CreateBrush(0x25, 0x2C, 0x33);
+    private static readonly Brush LabelBrush = CreateBrush(0x2C, 0x33, 0x3B);
+    private static readonly Brush SelectedLabelBrush = CreateBrush(0x34, 0x46, 0x54);
+    private static readonly Brush InactiveClipBrush = CreateBrush(0x32, 0x38, 0x3F);
+    private static readonly Brush TextBrush = CreateBrush(0xDF, 0xE5, 0xEB);
+    private static readonly Brush MutedTextBrush = CreateBrush(0x9A, 0xA5, 0xAF);
+    private static readonly Brush InactiveWaveBrush = CreateBrush(0x77, 0x83, 0x8D);
+    private static readonly Pen GridPen = CreatePen(CreateBrush(0x36, 0x3E, 0x46), 1);
+    private static readonly Pen ClipPen = CreatePen(CreateBrush(0x53, 0x61, 0x6D), 1);
+    private static readonly Pen SelectedPen = CreatePen(CreateBrush(0xC5, 0xE5, 0xFF), 1.5);
+    private static readonly Pen PlayheadPen = CreatePen(CreateBrush(0xEA, 0xEE, 0xF2), 1.5);
+    private static readonly Pen CursorPen = CreatePen(CreateBrush(0x48, 0x9C, 0xD8), 1);
+    private static readonly LanePalette[] LanePalettes =
+    [
+        new(CreateBrush(0x31, 0x4D, 0x63), CreateBrush(0x3A, 0x5C, 0x76), CreateBrush(0x48, 0x9C, 0xD8), CreateBrush(0xA6, 0xCB, 0xE5)),
+        new(CreateBrush(0x2C, 0x51, 0x4F), CreateBrush(0x35, 0x5F, 0x5B), CreateBrush(0x52, 0xA5, 0x97), CreateBrush(0x9D, 0xCF, 0xC4)),
+        new(CreateBrush(0x49, 0x44, 0x5C), CreateBrush(0x57, 0x51, 0x6E), CreateBrush(0x95, 0x83, 0xBE), CreateBrush(0xC5, 0xBB, 0xDD)),
+        new(CreateBrush(0x62, 0x50, 0x3A), CreateBrush(0x72, 0x5D, 0x42), CreateBrush(0xC3, 0x9A, 0x64), CreateBrush(0xE0, 0xC5, 0x9D))
+    ];
 
     private IReadOnlyList<AudioTrack> _tracks = Array.Empty<AudioTrack>();
     private IReadOnlyList<LaneRow> _lanes = Array.Empty<LaneRow>();
@@ -180,7 +184,7 @@ public sealed class TrackTimelineView : FrameworkElement
 
         dc.DrawRectangle(BackgroundBrush, null, new Rect(0, 0, ActualWidth, ActualHeight));
         dc.DrawRectangle(HeaderBrush, null, new Rect(0, 0, ActualWidth, HeaderHeight));
-        DrawText(dc, "트랙 / 클립", new Point(13, 7), 11, MutedTextBrush, LabelWidth - 24);
+        DrawText(dc, "트랙", new Point(13, 7), 11, MutedTextBrush, LabelWidth - 24);
 
         double timelineWidth = TimelineWidth;
         if (timelineWidth <= 0)
@@ -191,27 +195,29 @@ public sealed class TrackTimelineView : FrameworkElement
 
         if (_tracks.Count == 0)
         {
-            DrawText(dc, "소리를 추가한 뒤 같은 트랙에 여러 클립을 배치하세요.",
-                new Point(LabelWidth + 16, HeaderHeight + 25), 12, MutedTextBrush, timelineWidth - 24);
+            DrawText(dc, "오디오를 추가해 편집을 시작하세요.",
+                new Point(LabelWidth + 16, HeaderHeight + 25), 11, MutedTextBrush, timelineWidth - 24);
         }
 
         bool anySolo = _tracks.Any(track => track.Solo);
         double dpi = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        Pen wavePen = CreatePen(WaveBrush, 1 / dpi);
         Pen inactiveWavePen = CreatePen(InactiveWaveBrush, 1 / dpi);
         for (int row = 0; row < _lanes.Count; row++)
         {
             LaneRow lane = _lanes[row];
+            LanePalette palette = LanePalettes[row % LanePalettes.Length];
+            Pen wavePen = CreatePen(palette.Wave, 1 / dpi);
             double top = HeaderHeight + row * RowHeight;
             bool selected = lane.Clips.Any(track => track.Id == _selectedTrackId);
             dc.DrawRectangle(selected ? SelectedLabelBrush : LabelBrush, null,
                 new Rect(0, top, LabelWidth, RowHeight));
+            dc.DrawRectangle(palette.Accent, null, new Rect(0, top, 3, RowHeight));
             dc.DrawLine(GridPen, new Point(0, top + RowHeight), new Point(ActualWidth, top + RowHeight));
             string name = lane.Clips[0].Source?.Name ?? "읽을 수 없는 소리";
             DrawText(dc, name, new Point(13, top + 10), 12, selected ? TextBrush : MutedTextBrush, LabelWidth - 25);
-            int audibleCount = lane.Clips.Count(track => !track.Muted && (!anySolo || track.Solo));
-            DrawText(dc, $"{lane.Clips.Length}개 클립 · {audibleCount}개 재생",
-                new Point(13, top + 34), 10, audibleCount > 0 ? WaveBrush : MutedTextBrush, LabelWidth - 25);
+            string state = lane.Clips[0].Muted ? "음소거" : lane.Clips[0].Solo ? "단독" : anySolo ? "재생 제외" : "오디오";
+            DrawText(dc, $"{state} · {lane.Clips.Length}개 클립",
+                new Point(13, top + 34), 10, MutedTextBrush, LabelWidth - 25);
 
             // 배열 뒤쪽 클립이 앞에 보이며, 클릭 판정도 같은 순서를 거꾸로 확인합니다.
             foreach (AudioTrack track in lane.Clips)
@@ -234,10 +240,10 @@ public sealed class TrackTimelineView : FrameworkElement
             bool newLaneTarget = _drag is { HasMoved: true } && _drag.PreviewLaneId == _drag.NewLaneId;
             dc.DrawRectangle(newLaneTarget ? SelectedLabelBrush : LabelBrush, null,
                 new Rect(0, emptyTop, LabelWidth, RowHeight));
-            DrawText(dc, newLaneTarget ? "새 트랙" : "빈 트랙 공간", new Point(13, emptyTop + 12), 11, MutedTextBrush, LabelWidth - 25);
+            DrawText(dc, "새 트랙", new Point(13, emptyTop + 12), 11, MutedTextBrush, LabelWidth - 25);
             if (!newLaneTarget)
-                DrawText(dc, "클립을 여기로 옮겨 새 트랙을 만드세요.",
-                    new Point(LabelWidth + 13, emptyTop + 27), 11, MutedTextBrush, timelineWidth - 24);
+                DrawText(dc, "클립을 이 행으로 드래그해 새 트랙으로 이동",
+                    new Point(LabelWidth + 13, emptyTop + 27), 10, MutedTextBrush, timelineWidth - 24);
         }
 
         // 이동 중인 클립만 잠시 맨 앞에 그려 겹친 위치와 새 행의 미리 보기를 보장합니다.
@@ -245,8 +251,11 @@ public sealed class TrackTimelineView : FrameworkElement
         {
             int targetRow = moving.PreviewLaneId == moving.NewLaneId ? _lanes.Count : FindLaneRow(moving.PreviewLaneId);
             if (targetRow >= 0)
+            {
+                Pen wavePen = CreatePen(LanePalettes[targetRow % LanePalettes.Length].Wave, 1 / dpi);
                 DrawClip(dc, movingTrack, movingInfo, targetRow, pixelsPerSecond, dpi,
                     !movingTrack.Muted && (!anySolo || movingTrack.Solo), wavePen, inactiveWavePen);
+            }
         }
 
         DrawPosition(dc, _cursorSeconds, duration, pixelsPerSecond, CursorPen, true);
@@ -482,17 +491,20 @@ public sealed class TrackTimelineView : FrameworkElement
     {
         Rect clipRect = GetClipRect(track, info, row, pixelsPerSecond);
         bool selected = track.Id == _selectedTrackId;
+        LanePalette palette = LanePalettes[row % LanePalettes.Length];
         double top = HeaderHeight + row * RowHeight;
         dc.PushClip(new RectangleGeometry(new Rect(LabelWidth, top, TimelineWidth, RowHeight)));
-        dc.DrawRoundedRectangle(selected ? SelectedClipBrush : audible ? ClipBrush : InactiveClipBrush,
-            selected ? SelectedPen : ClipPen, clipRect, 5, 5);
+        dc.DrawRoundedRectangle(audible ? selected ? palette.SelectedFill : palette.Fill : InactiveClipBrush,
+            selected ? SelectedPen : ClipPen, clipRect, 2, 2);
         dc.PushClip(new RectangleGeometry(clipRect));
+        dc.DrawRectangle(audible ? palette.Accent : InactiveWaveBrush, null,
+            new Rect(clipRect.Left + 1, clipRect.Top + 1, Math.Max(0, clipRect.Width - 2), 2));
         if (clipRect.Width >= 36)
         {
             string rate = track.PlaybackRate.ToString("0.##", CultureInfo.InvariantCulture) + "×";
             string suffix = (track.Reverse ? " · 역방향" : "") + (track.Muted ? " · 음소거" : track.Solo ? " · 단독" : "");
             DrawText(dc, track.Source.Name + " · " + rate + suffix,
-                new Point(clipRect.Left + 6, clipRect.Top + 3), 10, audible ? TextBrush : MutedTextBrush, clipRect.Width - 12);
+                new Point(clipRect.Left + 6, clipRect.Top + 4), 10, audible ? TextBrush : MutedTextBrush, clipRect.Width - 12);
         }
         double waveWidth = Math.Max(1, clipRect.Width - 8);
         WaveCache cache = GetWaveCache(track, info, waveWidth, dpi);
@@ -616,6 +628,7 @@ public sealed class TrackTimelineView : FrameworkElement
     }
 
     private readonly record struct ClipInfo(int StartFrame, int EndFrame, double Duration);
+    private sealed record LanePalette(Brush Fill, Brush SelectedFill, Brush Accent, Brush Wave);
     private sealed record LaneRow(Guid Id, AudioTrack[] Clips);
     private sealed record DragState(Guid Id, double StartX, double StartY, double InitialOffset, double PreviewOffset,
         double ClipDuration, double TimelineDuration, double PixelsPerSecond, Guid InitialLaneId, Guid PreviewLaneId,
