@@ -275,7 +275,7 @@
   <!-- 하단의 믹서와 편집기는 같은 영역을 번갈아 사용합니다. -->
   <Border x:Name="ConsolePane" Grid.Row="3" Grid.Column="1" Background="#202730" BorderBrush="#111A23" BorderThickness="0,1,0,0">
    <Grid><Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-    <Border Background="#2E3843" BorderBrush="#111C25" BorderThickness="0,0,0,1"><Grid Margin="10,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="콘솔" FontWeight="SemiBold" Foreground="#C1D2DF" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="트랙 음소거·단독 듣기 / 마스터 음량" Style="{StaticResource Caption}" VerticalAlignment="Center"/></Grid></Border>
+    <Border Background="#2E3843" BorderBrush="#111C25" BorderThickness="0,0,0,1"><Grid Margin="10,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="콘솔" FontWeight="SemiBold" Foreground="#C1D2DF" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="트랙 음량·음소거·단독 듣기 / 마스터" Style="{StaticResource Caption}" VerticalAlignment="Center"/></Grid></Border>
     <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="142"/></Grid.ColumnDefinitions>
      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalContentAlignment="Left" Background="#202831"><StackPanel x:Name="MixerChannels" Orientation="Horizontal" Margin="7,3,4,1"/></ScrollViewer>
      <Border Grid.Column="1" Background="#2A3743" BorderBrush="#526472" BorderThickness="1,0,0,0">

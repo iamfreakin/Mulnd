@@ -62,7 +62,7 @@ public partial class StudioWindow
         var next = _state.Tracks.Select(t => t.Id == id ? t with
         {
             OffsetSeconds = offset, LaneId = targetLane,
-            Muted = lane?.Muted ?? false, Solo = lane?.Solo ?? false
+            Muted = lane?.Muted ?? false, Solo = lane?.Solo ?? false, TrackGainDb = lane?.TrackGainDb ?? 0
         } : t).ToArray();
         CommitState(next, _state.MasterDb, "clip-move", id);
         // 실패하거나 같은 위치로 놓은 경우에도 임시 드래그 표시를 실제 상태로 돌립니다.

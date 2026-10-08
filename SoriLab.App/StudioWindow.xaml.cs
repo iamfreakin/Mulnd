@@ -244,7 +244,7 @@ public partial class StudioWindow : Window
                     sourceSamples += source.Samples.Length;
                     if (sourceSamples > 32_000_000) throw new ArgumentException("원본 데이터 합계가 한도를 넘습니다. 더 짧은 소리로 나누어 추가해 주세요.");
                     int end = (int)Math.Min(source.FrameCount, source.SampleRate * 120L);
-                    var addedClip = new AudioTrack(Guid.NewGuid(), source, new EditSettings(0, end, 0, 0, 0), insertAt, Muted: lane?.Muted ?? false, Solo: lane?.Solo ?? false, SourcePath: Path.GetFullPath(path), LaneId: laneId);
+                    var addedClip = new AudioTrack(Guid.NewGuid(), source, new EditSettings(0, end, 0, 0, 0), insertAt, Muted: lane?.Muted ?? false, Solo: lane?.Solo ?? false, SourcePath: Path.GetFullPath(path), LaneId: laneId, TrackGainDb: lane?.TrackGainDb ?? 0);
                     result.Add(addedClip);
                     if (laneId.HasValue) insertAt = AudioMixer.GetEndSeconds(addedClip);
                 }
@@ -274,7 +274,7 @@ public partial class StudioWindow : Window
     private AudioClip RenderSnapshot(Snapshot snapshot, Guid? selected, bool bypass, CancellationToken token = default)
     {
         var tracks = selected.HasValue ? snapshot.Tracks.Where(t => t.Id == selected).Select(t => t with { OffsetSeconds = 0, Muted = false, Solo = false }).ToArray() : snapshot.Tracks;
-        if (bypass) tracks = tracks.Select(t => t with { Edit = t.Edit with { GainDb = 0, FadeInMs = 0, FadeOutMs = 0 } }).ToArray();
+        if (bypass) tracks = tracks.Select(t => t with { TrackGainDb = 0, Edit = t.Edit with { GainDb = 0, FadeInMs = 0, FadeOutMs = 0 } }).ToArray();
         return AudioMixer.Render(tracks, 48000, bypass ? 0 : snapshot.MasterDb, token);
     }
     private void SchedulePeak() { _peakDelay.Stop(); _peakDelay.Start(); }
@@ -557,9 +557,11 @@ public partial class StudioWindow : Window
         if (IsDirty || !beforeSave.Samples.SequenceEqual(RenderSnapshot(_state, null, false).Samples)) throw new InvalidOperationException("프로젝트 재열기 소리 검증 실패");
         await RunWorkspaceChecksAsync(outputBase);
         await RunCursorPlaybackChecksAsync(outputBase);
+        await RunTrackGainChecksAsync(outputBase);
+        _workspaceChannels[_state.Tracks[0].EffectiveLaneId].VolumeFader.Value = -6;
         if (!await SaveProjectAsync(false)) throw new InvalidOperationException("검수용 프로젝트 최종 저장 실패");
         WriteAudioAtomic(outputBase + ".wav", RenderSnapshot(_state, null, false));
         await UpdatePeakAsync();
-        Status("조합·트랙 편집·실행 취소·내보내기·커서 재생·프로젝트 저장 검증을 통과했습니다.");
+        Status("조합·트랙 편집·트랙 음량·실행 취소·내보내기·커서 재생·프로젝트 저장 검증을 통과했습니다.");
     }
 }

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using SoriLab.Core;
 
@@ -15,6 +16,7 @@ public partial class StudioWindow
     private AudioTrack[][] _workspaceLanes = [];
     private AudioClip[] _workspaceSources = [];
     private TextBlock? _workspaceEmptyChannels;
+    private Guid? _workspaceVolumeDrag;
 
     private void InitializeWorkspaceShell()
     {
@@ -64,6 +66,10 @@ public partial class StudioWindow
                 channel.SelectButton.IsEnabled = !_busy;
                 channel.MuteButton.IsEnabled = !_busy;
                 channel.SoloButton.IsEnabled = !_busy;
+                channel.VolumeFader.IsEnabled = !_busy;
+                channel.ResetVolumeButton.IsEnabled = !_busy;
+                channel.VolumeFader.Value = first.TrackGainDb;
+                channel.VolumeValue.Text = $"{first.TrackGainDb:+0.0;-0.0;0.0} dB";
                 channel.Root.BorderBrush = WorkspaceBrush(first.EffectiveLaneId == selectedLane ? "AccentBrush" : "BorderBrush",
                     first.EffectiveLaneId == selectedLane ? "#4E91BD" : "#3C4652");
                 channel.MuteButton.Background = first.Muted ? Brush("#756038") : WorkspaceBrush("PanelBrush", "#252D35");
@@ -143,7 +149,7 @@ public partial class StudioWindow
         };
 
         var count = WorkspaceText("", 9, muted: true);
-        count.Height = 16;
+        count.Height = 14;
         count.HorizontalAlignment = HorizontalAlignment.Center;
         var mute = WorkspaceLaneButton("M", "트랙 음소거");
         var solo = WorkspaceLaneButton("S", "트랙 단독 재생");
@@ -155,10 +161,10 @@ public partial class StudioWindow
         switches.Children.Add(solo);
 
         var pan = WorkspaceText("팬 · 준비 중", 9, muted: true);
-        pan.Height = 15;
+        pan.Height = 14;
         pan.HorizontalAlignment = HorizontalAlignment.Center;
         var effects = WorkspaceText("삽입·보내기 준비 중", 8, muted: true);
-        effects.Height = 17;
+        effects.Height = 12;
         effects.HorizontalAlignment = HorizontalAlignment.Center;
         effects.ToolTip = "트랙별 효과 삽입과 보내기는 준비 중입니다.";
 
@@ -191,13 +197,37 @@ public partial class StudioWindow
         {
             Orientation = Orientation.Vertical, Minimum = -60, Maximum = 12, Value = 0,
             Height = 61, Width = 27, VerticalAlignment = VerticalAlignment.Top,
-            IsEnabled = false, IsTabStop = false, Opacity = 0.4,
-            ToolTip = "트랙별 페이더는 준비 중입니다. 클립 음량은 인스펙터에서 조절할 수 있습니다."
+            SmallChange = 0.5, LargeChange = 6, TickFrequency = 0.5, IsSnapToTickEnabled = true,
+            ToolTip = "트랙 음량 · -60~+12dB · 방향키로 0.5dB씩 조절 · 같은 트랙의 모든 클립에 적용"
         };
+        fader.ValueChanged += (_, e) => ChangeWorkspaceLaneGain(laneId, e.NewValue);
+        fader.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, _) =>
+        {
+            _workspaceVolumeDrag = laneId;
+            _coalesceKind = null;
+        }));
+        fader.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) =>
+        {
+            _workspaceVolumeDrag = null;
+            _coalesceKind = null;
+        }));
+        System.Windows.Automation.AutomationProperties.SetName(fader, "트랙 음량");
         Grid.SetColumn(fader, 2);
         lower.Children.Add(fader);
-        var pending = WorkspaceText("페이더·미터 준비 중", 8.5, muted: true);
-        pending.HorizontalAlignment = HorizontalAlignment.Center;
+        var volumeValue = WorkspaceText("0.0 dB", 9);
+        volumeValue.Foreground = Brush("#8DC0DF");
+        volumeValue.VerticalAlignment = VerticalAlignment.Center;
+        volumeValue.ToolTip = "트랙 음량 · 0dB는 원래 크기입니다. 완전한 무음은 M 버튼을 사용하세요.";
+        var resetVolume = new Button
+        {
+            Content = "0", Width = 22, Height = 20, MinHeight = 0, MinWidth = 0,
+            Padding = new Thickness(0), Margin = new Thickness(3, 0, 0, 0),
+            ToolTip = "트랙 음량을 0dB로 되돌리기"
+        };
+        resetVolume.Click += (_, _) => ChangeWorkspaceLaneGain(laneId, 0, reset: true);
+        var volumeRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Height = 20 };
+        volumeRow.Children.Add(volumeValue);
+        volumeRow.Children.Add(resetVolume);
         var accent = new Border { Height = 3, Margin = new Thickness(0, 0, 0, 4) };
         var content = new StackPanel();
         content.Children.Add(accent);
@@ -207,7 +237,7 @@ public partial class StudioWindow
         content.Children.Add(pan);
         content.Children.Add(effects);
         content.Children.Add(lower);
-        content.Children.Add(pending);
+        content.Children.Add(volumeRow);
 
         var root = new Border
         {
@@ -215,7 +245,7 @@ public partial class StudioWindow
             VerticalAlignment = VerticalAlignment.Top, Background = WorkspaceBrush("PanelBrush", "#252D35"),
             BorderBrush = WorkspaceBrush("BorderBrush", "#3C4652"), BorderThickness = new Thickness(1), Child = content
         };
-        return new WorkspaceChannel(root, accent, name, count, select, mute, solo);
+        return new WorkspaceChannel(root, accent, name, count, select, mute, solo, fader, volumeValue, resetVolume);
     }
 
     private Button WorkspaceLaneButton(string text, string tooltip) => new()
@@ -234,6 +264,20 @@ public partial class StudioWindow
         var next = _state.Tracks.Select(track => track.EffectiveLaneId != laneId ? track :
             changeMute ? track with { Muted = !first.Muted } : track with { Solo = !first.Solo }).ToArray();
         CommitState(next, _state.MasterDb, changeMute ? "workspace-mute" : "workspace-solo");
+    }
+
+    private void ChangeWorkspaceLaneGain(Guid laneId, double gainDb, bool reset = false)
+    {
+        if (_workspaceSyncing || _syncing) return;
+        if (_busy || !CommitNumbers()) { RefreshWorkspaceShell(); return; }
+        if (!_state.Tracks.Any(track => track.EffectiveLaneId == laneId)) return;
+        var next = _state.Tracks.Select(track => track.EffectiveLaneId == laneId ? track with { TrackGainDb = gainDb } : track).ToArray();
+        // 손잡이를 잡고 있는 동안 잠시 멈춰도 한 번의 드래그를 한 번에 취소할 수 있게 합니다.
+        if (_workspaceVolumeDrag == laneId && !reset) _lastEdit = DateTime.UtcNow;
+        var previous = _state.Id;
+        CommitState(next, _state.MasterDb, reset ? "lane-gain-reset" : "slider:lane-gain:" + laneId);
+        if (_state.Id != previous)
+            Status($"트랙 음량을 {gainDb:+0.0;-0.0;0.0}dB로 바꿨습니다. 재생하면 같은 트랙의 모든 클립에 적용됩니다.");
     }
 
     private void RefreshWorkspacePool()
@@ -359,5 +403,6 @@ public partial class StudioWindow
         TryFindResource(key) as System.Windows.Media.Brush ?? Brush(fallback);
 
     private sealed record WorkspaceChannel(
-        Border Root, Border Accent, TextBlock Name, TextBlock ClipCount, Button SelectButton, Button MuteButton, Button SoloButton);
+        Border Root, Border Accent, TextBlock Name, TextBlock ClipCount, Button SelectButton, Button MuteButton, Button SoloButton,
+        Slider VolumeFader, TextBlock VolumeValue, Button ResetVolumeButton);
 }

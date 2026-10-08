@@ -58,7 +58,8 @@ public static class AudioMixer
         return new AudioClip("조합한 소리", sampleRate, 2, result);
     }
 
-    // 개별 결과에는 배치 전 무음과 음소거·단독 재생 설정을 적용하지 않습니다.
+    // 개별 결과에는 배치 전 무음과 음소거·단독 재생·트랙 음량을 적용하지 않습니다.
+    // 분할용 소리에 트랙 음량을 구워 넣으면 조합할 때 중복 적용되므로 클립 효과만 렌더합니다.
     public static AudioClip RenderTrack(AudioTrack track, int sampleRate = 48000, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -99,7 +100,7 @@ public static class AudioMixer
 
         var sources = new HashSet<AudioClip>(ReferenceEqualityComparer.Instance);
         var identifiers = new HashSet<Guid>();
-        var lanes = new Dictionary<Guid, (bool Muted, bool Solo)>();
+        var lanes = new Dictionary<Guid, (bool Muted, bool Solo, double TrackGainDb)>();
         long sourceSamples = 0;
         foreach (var track in tracks)
         {
@@ -107,9 +108,9 @@ public static class AudioMixer
             ValidateTrack(track);
             if (!identifiers.Add(track.Id))
                 throw new ArgumentException("같은 식별자를 가진 클립이 중복되어 있습니다.", nameof(tracks));
-            var laneState = (track.Muted, track.Solo);
+            var laneState = (track.Muted, track.Solo, track.TrackGainDb);
             if (lanes.TryGetValue(track.EffectiveLaneId, out var existingState) && existingState != laneState)
-                throw new ArgumentException("같은 트랙의 클립은 음소거·단독 재생 설정이 같아야 합니다.", nameof(tracks));
+                throw new ArgumentException("같은 트랙의 클립은 음소거·단독 재생·트랙 음량 설정이 같아야 합니다.", nameof(tracks));
             lanes[track.EffectiveLaneId] = laneState;
             if (lanes.Count > MaximumTracks)
                 throw new ArgumentException("프로젝트에는 최대 32개의 트랙을 넣을 수 있습니다.", nameof(tracks));
@@ -145,8 +146,10 @@ public static class AudioMixer
             throw new ArgumentException("재생 속도는 0.25배부터 4배 사이로 설정해 주세요.", nameof(track));
         if (!double.IsFinite(track.OffsetSeconds) || track.OffsetSeconds is < 0 or > MaximumDurationSeconds)
             throw new ArgumentException("배치 위치는 0초부터 120초 사이로 설정해 주세요.", nameof(track));
+        if (!double.IsFinite(track.TrackGainDb) || track.TrackGainDb is < -60 or > 12)
+            throw new ArgumentException("트랙 음량은 -60dB부터 +12dB 사이로 설정해 주세요.", nameof(track));
         if (!double.IsFinite(track.Edit.GainDb) || !double.IsFinite(Math.Pow(10, track.Edit.GainDb / 20)))
-            throw new ArgumentException("트랙 음량이 올바르지 않거나 처리 범위를 넘었습니다.", nameof(track));
+            throw new ArgumentException("클립 음량이 올바르지 않거나 처리 범위를 넘었습니다.", nameof(track));
         if (!double.IsFinite(track.Edit.FadeInMs) || track.Edit.FadeInMs < 0 ||
             !double.IsFinite(track.Edit.FadeOutMs) || track.Edit.FadeOutMs < 0)
             throw new ArgumentException("페이드 길이에는 0 이상의 유한한 숫자를 입력해 주세요.", nameof(track));
@@ -190,6 +193,8 @@ public static class AudioMixer
         if (owners is not null && Array.IndexOf(owners, ownerIndex, firstFrame, frames) < 0)
             return;
         var rendered = RenderTrackCore(track, sampleRate, cancellationToken);
+        // 클립 효과가 끝난 뒤 트랙 음량을 한 번 적용하고, 전체 음량은 모든 트랙을 합친 뒤 적용합니다.
+        var trackGain = Math.Pow(10, track.TrackGainDb / 20);
         for (var frame = 0; frame < frames; frame++)
         {
             if ((frame & 4095) == 0)
@@ -198,8 +203,8 @@ public static class AudioMixer
             // 앞 클립이 무음이어도 뒤의 소리를 통과시키지 않고 표시된 클립만 재생합니다.
             if (owners is not null && owners[targetFrame] != ownerIndex)
                 continue;
-            summed[targetFrame * 2] += rendered.Samples[frame * 2];
-            summed[targetFrame * 2 + 1] += rendered.Samples[frame * 2 + 1];
+            summed[targetFrame * 2] += rendered.Samples[frame * 2] * trackGain;
+            summed[targetFrame * 2 + 1] += rendered.Samples[frame * 2 + 1] * trackGain;
         }
     }
 

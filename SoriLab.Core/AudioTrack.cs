@@ -10,7 +10,8 @@ public sealed record AudioTrack(
     bool Muted = false,
     bool Solo = false,
     string? SourcePath = null,
-    Guid? LaneId = null)
+    Guid? LaneId = null,
+    double TrackGainDb = 0)
 {
     public Guid EffectiveLaneId => LaneId ?? Id;
 }
